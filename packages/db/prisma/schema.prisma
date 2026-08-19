@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Un mazo = un archivo `decks/*.md`. El contenido vive en el archivo;
+/// esta tabla es el índice derivado que la BD usa para colgar el estado SRS.
+model Deck {
+  slug      String   @id
+  title     String
+  source    String?
+  tags      String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cards     Card[]
+
+  @@map("decks")
+}
+
+/// Estado SRS por tarjeta. `id` = hash(deckSlug + pregunta) — estable entre
+/// re-seeds mientras la pregunta no cambie (editar respuesta mantiene el historial).
+model Card {
+  id           String    @id
+  deckSlug     String
+  question     String
+  answer       String
+  ease         Float     @default(2.5)
+  intervalDays Int       @default(0)
+  dueAt        DateTime  @default(now())
+  reps         Int       @default(0)
+  lapses       Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deck         Deck      @relation(fields: [deckSlug], references: [slug], onDelete: Cascade)
+  reviews      ReviewLog[]
+
+  @@index([deckSlug, dueAt])
+  @@map("cards")
+}
+
+/// Append-only: cada autoevaluación deja una fila. Habilita stats y,
+/// a futuro, sync multi-device derivando estado del log.
+model ReviewLog {
+  id           Int      @id @default(autoincrement())
+  cardId       String
+  grade        Int
+  reviewedAt   DateTime @default(now())
+  intervalDays Int
+  ease         Float
+  card         Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, reviewedAt])
+  @@index([reviewedAt])
+  @@map("review_logs")
+}

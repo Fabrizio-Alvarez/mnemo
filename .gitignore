@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+.env
+.env.local
+# Prisma
+packages/db/generated/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# testing
+coverage/

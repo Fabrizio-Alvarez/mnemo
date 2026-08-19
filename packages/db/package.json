@@ -1,0 +1,24 @@
+{
+  "name": "@mnemo/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Schema Prisma + cliente singleton de Mnemo",
+  "exports": {
+    ".": "./src/client.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "postinstall": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.16.0",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "mnemo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Tarjetas de estudio personales — contenido en Markdown, estado SRS en Postgres",
+  "packageManager": "pnpm@11.22.0",
+  "scripts": {
+    "dev": "corepack pnpm --filter @mnemo/web dev",
+    "build": "corepack pnpm --filter @mnemo/web build",
+    "test": "corepack pnpm --filter @mnemo/domain test",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "corepack pnpm --filter @mnemo/db migrate",
+    "db:generate": "corepack pnpm --filter @mnemo/db generate",
+    "seed": "tsx --env-file=.env scripts/seed-decks.ts",
+    "setup": "corepack pnpm install && corepack pnpm db:up && corepack pnpm db:migrate && corepack pnpm seed"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0"
+  }
+}
