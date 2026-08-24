@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Generar Prisma Client
+        run: pnpm --filter @mnemo/db exec prisma generate
+
+      - name: Tests del dominio (Vitest)
+        run: pnpm test
+
+      - name: Typecheck (domain + web)
+        run: |
+          pnpm --filter @mnemo/domain exec tsc --noEmit
+          pnpm --filter @mnemo/web exec tsc --noEmit
+
+      - name: Build de producción (Next.js)
+        run: pnpm build
