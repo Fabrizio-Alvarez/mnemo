@@ -9,6 +9,8 @@ FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/domain/package.json packages/domain/
 COPY packages/db/package.json packages/db/
+# el schema va en deps: el postinstall de packages/db corre `prisma generate`
+COPY packages/db/prisma packages/db/prisma
 COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile
 
