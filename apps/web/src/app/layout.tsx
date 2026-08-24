@@ -17,9 +17,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
               <span aria-hidden className="text-accent">◆</span> Mnemo
             </Link>
-            <Link href="/" className="text-sm text-muted hover:text-foreground">
-              Mazos
-            </Link>
+            <nav className="flex gap-4 text-sm text-muted">
+              <Link href="/" className="hover:text-foreground">
+                Mazos
+              </Link>
+              <Link href="/stats" className="hover:text-foreground">
+                Stats
+              </Link>
+            </nav>
           </div>
         </header>
         <main className="mx-auto max-w-3xl px-6 py-10">{children}</main>

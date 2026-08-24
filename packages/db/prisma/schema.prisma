@@ -42,16 +42,23 @@ model Card {
   @@map("cards")
 }
 
-/// Append-only: cada autoevaluación deja una fila. Habilita stats y,
+/// Append-only: cada autoevaluación deja una fila, con el estado RESULTANTE
+/// (intervalDays/ease) y el PREVIO (prev*) — este par habilita "deshacer"
+/// restaurando el estado y borrando la fila. También alimenta stats y,
 /// a futuro, sync multi-device derivando estado del log.
 model ReviewLog {
-  id           Int      @id @default(autoincrement())
-  cardId       String
-  grade        Int
-  reviewedAt   DateTime @default(now())
-  intervalDays Int
-  ease         Float
-  card         Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  id              Int      @id @default(autoincrement())
+  cardId          String
+  grade           Int
+  reviewedAt      DateTime @default(now())
+  intervalDays    Int
+  ease            Float
+  prevIntervalDays Int
+  prevEase        Float
+  prevReps        Int
+  prevLapses      Int
+  prevDueAt       DateTime
+  card            Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
   @@index([cardId, reviewedAt])
   @@index([reviewedAt])

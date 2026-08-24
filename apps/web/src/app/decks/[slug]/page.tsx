@@ -42,7 +42,7 @@ export default async function PaginaMazo({ params }: { params: Promise<{ slug: s
         )}
       </header>
 
-      <div>
+      <div className="flex flex-wrap gap-3">
         {mazo.due > 0 ? (
           <Link
             href={`/study/${mazo.slug}`}
@@ -51,10 +51,19 @@ export default async function PaginaMazo({ params }: { params: Promise<{ slug: s
             Estudiar {mazo.due} tarjeta{mazo.due === 1 ? "" : "s"} →
           </Link>
         ) : (
-          <p className="rounded-lg border border-foreground/10 bg-card px-5 py-3 text-sm text-muted">
-            Nada vencido en este mazo. Volvé cuando las tarjetas venzan.
-          </p>
+          <Link
+            href={`/study/${mazo.slug}?all=1`}
+            className="inline-flex items-center gap-2 rounded-lg border border-foreground/15 px-5 py-2.5 font-medium transition hover:border-accent/60 hover:text-accent"
+          >
+            Repasar igual ({mazo.total} tarjetas) →
+          </Link>
         )}
+        <Link
+          href={`/quiz/${mazo.slug}`}
+          className="inline-flex items-center gap-2 rounded-lg border border-foreground/15 px-5 py-2.5 text-sm transition hover:border-accent/60 hover:text-accent"
+        >
+          Modo quiz (práctica)
+        </Link>
       </div>
 
       <section className="space-y-2">
