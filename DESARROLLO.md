@@ -115,9 +115,9 @@ Tres modelos (`prisma/schema.prisma`):
 
 - **`Deck`** (`slug` como id): índice derivado del archivo. `title`, `source`, `tags`.
 - **`Card`** (`id` = el hash): contenido + **estado SRS** (`ease`, `intervalDays`, `dueAt`, `reps`, `lapses`). Índice `[deckSlug, dueAt]` — la query de "vencidas de este mazo" es un index scan.
-- **`ReviewLog`** (append-only): una fila **por cada autoevaluación** (`grade`, `intervalDays`, `ease`, `reviewedAt`). Nunca se updatea ni borra.
+- **`ReviewLog`** (append-only): una fila **por cada autoevaluación** con el estado RESULTANTE (`grade`, `intervalDays`, `ease`, `reviewedAt`) y el **PREVIO** (`prevEase`, `prevIntervalDays`, `prevReps`, `prevLapses`, `prevDueAt`). Este par resultado/previo es lo que hace posible **deshacer**: restaurar el card y borrar la fila.
 
-¿Por qué el log si el estado ya está en `Card`? Dos razones: habilita las **stats de v1** (racha, actividad por día) sin tocar nada, y es el camino al **sync multi-device** del futuro (log append-only + estado derivado, como hace Anki).
+¿Por qué el log si el estado ya está en `Card`? Tres razones: habilita las **stats** (racha, actividad por día — `/stats` lee todo de acá), habilita **deshacer** sin snapshot extra, y es el camino al **sync multi-device** del futuro (log append-only + estado derivado, como hace Anki).
 
 `src/client.ts` es un singleton de `PrismaClient` colgado de `globalThis` (evita abrir un pool por hot-reload en dev).
 
@@ -132,15 +132,23 @@ Tres modelos (`prisma/schema.prisma`):
 
 Verificado en la práctica: segunda corrida imprime `0 nuevas, 0 eliminadas`. Podés correrlo mil veces.
 
-## 7. `@mnemo/web` — tres rutas y una server action
+## 7. `@mnemo/web` — cinco rutas y dos server actions
 
 | Ruta | Archivo | Qué hace |
 |---|---|---|
 | `/` | `src/app/page.tsx` | Dashboard: por mazo, total y **vencidas ahora** (dos `groupBy`) |
-| `/decks/[slug]` | `src/app/decks/[slug]/page.tsx` | Detalle del mazo + tarjetas vencidas en `<details>` (funciona sin JS) |
-| `/study/[slug]` | `src/app/study/[slug]/page.tsx` | Carga vencidas → `SesionEstudio` (cliente) |
+| `/decks/[slug]` | `src/app/decks/[slug]/page.tsx` | Detalle del mazo: estudiar / repasar igual / quiz |
+| `/study/[slug]` | `src/app/study/[slug]/page.tsx` | Vencidas → `SesionEstudio`. Con `?all=1`: **repaso libre** (todo el mazo, con banner) |
+| `/stats` | `src/app/stats/page.tsx` | Racha actual y mejor, barras de 30 días, actividad por mazo (todo de `review_logs`) |
+| `/quiz/[slug]` | `src/app/quiz/[slug]/page.tsx` + `QuizSesion` | **Modo práctica**: opción múltiple derivada, cero escrituras a la BD |
 
 Todas `force-dynamic`: los datos cambian con cada repaso, nada de caché de página.
+
+### La sesión (`SesionEstudio`) — re-encolado y deshacer
+
+- **Re-encolado** (estilo Anki): calificar "Otra vez" re-encola la tarjeta al final de la cola (máx. 1 reencolado por tarjeta, flag `reencolada`). El total visible crece ("Tarjeta 2 de 11 (+1 re-encolada)") — correcto: aún te queda trabajo.
+- **Resumen final** = la ÚLTIMA calificación por tarjeta original (`Map cardId→grade` sobre el historial de la sesión). Una tarjeta fallada y después aprobada cuenta como aprobada.
+- **Deshacer** (`Z` o botón): solo la última acción. La action `deshacerUltima` restaura el estado previo desde `review_logs` y borra la fila, en una transacción. Si lo deshecho fue un "Otra vez", la copia re-encolada sale de la cola.
 
 ### El flujo completo de un clic en "Bien"
 
@@ -171,12 +179,23 @@ Fix doble:
 
 Regla general que deja: **una sesión interactiva es un snapshot; el server no debe re-renderizar debajo del usuario que está interactuando.**
 
+### El modo quiz — extensibilidad hecha carne
+
+`armarQuiz` (`domain/src/quiz.ts`) convierte el mazo en opción múltiple: por cada tarjeta, 3 distractores = respuestas de tarjetas hermanas (dedupeadas, mezcladas) + la correcta, todo pasado por `mezclar` (Fisher-Yates con **rng inyectable** → tests deterministas). La página llama con `Math.random` (cada visita, un quiz distinto); `QuizSesion` mezcla además el ORDEN de preguntas al montar.
+
+Decisión clave: el quiz es **modo práctica** — no llama server actions, no escribe nada. Un quiz auto-calificado no es una autoevaluación honesta (adivinás) y contaminaría el scheduling SM-2. Así el `.md` alimenta DOS modos con la misma fuente y cero duplicación: la promesa de extensibilidad del diseño, cumplida.
+
+### Las stats — el log append-only pagando su lugar
+
+`/stats` no consulta `cards`: todo sale de `review_logs`. La lógica de rachas (`rachaActual`, `mejorRacha`) es **función pura del dominio** (testeada sin BD): recibe un `Set` de días activos y cuenta consecutivos; si hoy no repasaste, la racha sigue viva hasta ayer (no te castiga por estudiar a la noche). La agregación por día es una pasada O(n) en JS sobre `reviewedAt` — Prisma no trunca fechas en `groupby` y a escala personal miles de filas no son nada.
+
+
 ## 8. Cómo correrlo / extenderlo
 
 ```bash
 pnpm setup     # install + postgres (docker) + migrate + seed
 pnpm dev       # http://localhost:3000
-pnpm test      # 28 tests del dominio (sin DB)
+pnpm test      # 41 tests del dominio (sin DB)
 pnpm seed      # re-sync decks/ → BD (idempotente)
 pnpm db:studio # inspeccionar la BD
 ```
@@ -195,7 +214,8 @@ pnpm db:studio # inspeccionar la BD
 
 ## 10. Estado y qué sigue
 
-- ✅ v0 completa y verificada E2E (sesión de 15 tarjetas en browser, persistencia auditada en Postgres: 36 review_logs con ease/interval/reps/lapses correctos por grade).
-- 🔜 **v1**: stats desde `review_logs` (racha, actividad por día, histórico).
+- ✅ **v0** (2026-08-19): sesión de 15 tarjetas en browser, persistencia auditada en Postgres (36 review_logs con ease/interval/reps/lapses correctos por grade).
+- ✅ **v1** (2026-08-24): re-encolado + deshacer (auditado en BD: fila borrada, card restaurado exacto, cadena prev→next correcta) · `/stats` (números verificados contra la BD) · `/quiz` (juego completo, cero escrituras) · dominio 41/41.
+- 🔼 Repo público con CI: https://github.com/Fabrizio-Alvarez/mnemo (Actions: vitest + tsc + build en cada push). Deploy a Fly.io preparado (`deploy/Dockerfile` standalone + `fly.toml`).
 - 🔜 **v2**: importador NotebookLM → borrador de mazo `.md`.
-- Futuro: modo quiz/cloze derivado del mismo contenido, Capacitor, multi-idioma.
+- Futuro: cloze, Capacitor, multi-idioma.

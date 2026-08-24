@@ -1,6 +1,6 @@
 # 💡 CONTEXTO.md — Mnemo — tarjetas de estudio (flashcards personales, estilo Quizlet)
 
-**Para retomar este proyecto en otra sesión.** Idea capturada y diseño cerrado el 2026-08-18; **v0 implementada el 2026-08-19** (ver "Estado"). Este archivo es la fuente de verdad del diseño.
+**Para retomar este proyecto en otra sesión.** Idea capturada y diseño cerrado el 2026-08-18; **v0 implementada el 2026-08-19**; **v1 implementada el 2026-08-24** (ver "Estado"). Este archivo es la fuente de verdad del diseño.
 
 ---
 
@@ -55,13 +55,13 @@ Primeros mazos candidatos: el material de `Ejercicio-Arquitectura/ESTUDIO.md` y 
 
 El sistema de archivos de mazos es el contrato; los modos son módulos que lo consumen:
 - `flashcards` (v0): Q/R clásica con autoevaluación (la recordé bien/mal).
-- `quiz` (futuro): opción múltiple derivada.
+- `quiz` (v1 ✅): opción múltiple derivada — distractores = respuestas hermanas del mismo mazo (`armarQuiz` en el dominio). Modo práctica: no escribe en la BD.
 - `cloze` (futuro): completar el `==hueco==`.
 
 ## Roadmap
 
-- **v0**: app Next (SSR) — parser de `decks/*.md` en seed → tarjetas en Postgres (Prisma), sesión de repaso, SM-2, estado en la BD.
-- **v1**: web local con stats (mazos, vencidas por hoy, racha).
+- ✅ **v0**: app Next (SSR) — parser de `decks/*.md` en seed → tarjetas en Postgres (Prisma), sesión de repaso, SM-2, estado en la BD.
+- ✅ **v1**: stats (racha actual y mejor, últimos 30 días, actividad por mazo, desde `review_logs`) · re-encolado y deshacer en sesión · "repasar igual" (todo el mazo) · modo quiz.
 - **v2**: importador asistido (pegar texto de NotebookLM → generar borrador de mazo `.md`).
 
 ## Stack — ✅ DECIDIDO (2026-08-18): Next.js + TS + Prisma/PostgreSQL, móvil vía Capacitor
@@ -111,25 +111,28 @@ La buena noticia: el estado a sincronizar es **chiquito** — 1 registro por tar
 
 ```
 mnemo/
-├─ CONTEXTO.md
+├─ CONTEXTO.md / DESARROLLO.md   # diseño + guía de lectura del código
 ├─ pnpm-workspace.yaml        # apps/*, packages/* + onlyBuiltDependencies
 ├─ docker-compose.yml         # Postgres 16 local (mnemo:mnemo@localhost:5432/mnemo)
+├─ .github/workflows/ci.yml   # CI: vitest + tsc + build (sin BD)
+├─ deploy/Dockerfile          # imagen Next standalone (multi-stage) para Fly.io
+├─ fly.toml                   # config de deploy (región eze, healthcheck)
 ├─ scripts/seed-decks.ts      # decks/*.md → upsert en Postgres (usa @mnemo/domain + @mnemo/db)
 ├─ decks/                     # FUENTE DE VERDAD del contenido (3 mazos: laravel/vue/arquitectura)
 ├─ packages/
-│  ├─ domain/                 # @mnemo/domain — TS puro: parser .md + sha256 puro + cardId + slugify + SM-2. Vitest (28 tests).
-│  │  └─ src/{parse,frontmatter,id,sha256,sm2,deck}.ts
+│  ├─ domain/                 # @mnemo/domain — TS puro: parser .md + sha256 puro + cardId + slugify
+│  │  └─ src/{parse,frontmatter,id,sha256,sm2,quiz,stats,deck}.ts   # SM-2 + quiz + rachas. Vitest (41 tests).
 │  └─ db/                     # @mnemo/db — schema.prisma (Deck/Card/ReviewLog) + cliente Prisma singleton
 └─ apps/
    └─ web/                    # Next.js 15.5 App Router + TS strict + Tailwind 4
-      └─ src/app/             # / (dashboard), /decks/[slug], /study/[slug] + actions.ts (server action calificar)
-         └─ components/SesionEstudio.tsx  # cliente: flip + 4 botones + teclado (espacio, 1-4)
+      └─ src/app/             # / , /decks/[slug], /study/[slug] (?all=1), /stats, /quiz/[slug] + actions.ts
+         └─ components/       # SesionEstudio (flip, re-encolar, deshacer Z) y QuizSesion
 ```
 
 Schema Prisma (implementado, tablas `decks`/`cards`/`review_logs`):
 - `Deck`: `slug` (id), `title`, `source?`, `tags[]`
 - `Card`: `id` = hash(deckSlug + pregunta), `question`, `answer` + estado SRS: `ease` (init 2.5), `intervalDays`, `dueAt`, `reps`, `lapses`
-- `ReviewLog`: append-only — `cardId`, `grade` (0–3), `reviewedAt`, `intervalDays`, `ease`
+- `ReviewLog`: append-only — `cardId`, `grade` (0–3), `reviewedAt`, `intervalDays`, `ease` + estado PREVIO (`prevEase`, `prevIntervalDays`, `prevReps`, `prevLapses`, `prevDueAt`) que habilita deshacer
 
 Fijado también: UI de estudio = flip de tarjeta + 4 botones (**Otra vez / Difícil / Bien / Fácil** → grades 0–3 para SM-2) · Postgres local via docker-compose · Tailwind · `pnpm seed` desde la raíz.
 
@@ -138,10 +141,24 @@ Fijado también: UI de estudio = flip de tarjeta + 4 botones (**Otra vez / Difí
 ```bash
 pnpm setup        # install + docker compose up + migrate + seed (todo)
 pnpm dev          # Next en :3000
-pnpm test         # Vitest del dominio (28 tests, sin DB)
+pnpm test         # Vitest del dominio (41 tests, sin DB)
 pnpm seed         # re-sincroniza decks/*.md → BD (idempotente; baja tarjetas que desaparecieron)
 pnpm db:studio    # Prisma Studio para inspeccionar
 ```
+
+## Deploy (Fly.io) — preparado, falta autenticar
+
+La imagen (`deploy/Dockerfile`, Next standalone) y `fly.toml` ya están; validación local con `docker build`. Falta la cuenta (login interactivo). Cuando quieras:
+
+```bash
+fly auth login
+fly launch --no-deploy          # crea la app (usa el fly.toml del repo)
+fly postgres create --name mnemo-pg
+fly postgres attach mnemo-pg    # setea DATABASE_URL como secret de la app
+fly deploy
+```
+
+Después de deployar la primera vez: `fly ssh console -C "npx prisma migrate deploy"` (o correrlo como release command) y `pnpm seed` apuntando a la BD remota.
 
 ## ⚠️ Gotchas aprendidos en la implementación
 
@@ -163,5 +180,8 @@ pnpm db:studio    # Prisma Studio para inspeccionar
 ## Estado
 
 - ✅ **v0 completa y verificada end-to-end** (2026-08-19): dominio (parser + hash + SM-2, 28 tests Vitest sin DB) · Prisma + migración init · seed idempotente (verificado doble corrida: 0 nuevas, 0 eliminadas) · app Next (dashboard / mazo / estudio) · sesión completa probada en browser (15/15 tarjetas sin saltos, resumen con conteos exactos) · persistencia verificada en Postgres (36 review_logs, ease/interval/reps/lapses correctos por grade).
-- Mazos iniciales: `laravel-entrevista` (15), `vue-entrevista` (15), `arquitectura-entrevista` (10) — material real de la guía de estudio del proyecto Supermercado.
-- 🔜 v1: stats (racha, heatmap, histórico desde `review_logs`) · v2: importador NotebookLM → borrador de mazo. Futuro: multi-idioma, Capacitor.
+- ✅ **v1 completa y verificada end-to-end** (2026-08-24): re-encolado de "Otra vez" (máx 1 por tarjeta, resumen = última calificación por tarjeta) · **deshacer** (Z) con estado previo en `review_logs` (migración con backfill; undo verificado en BD: fila borrada + card restaurado exacto) · "repasar igual" (`?all=1` con banner) · `/stats` (racha, mejor racha, 30 días, por mazo — números auditados contra la BD) · `/quiz/[slug]` (quiz completo en browser, **cero escrituras a la BD**) · dominio 41/41 tests.
+- 🔼 **Repo público + CI**: https://github.com/Fabrizio-Alvarez/mnemo — GitHub Actions (vitest + tsc domain/web + build) en cada push.
+- Deploy a Fly.io preparado (Dockerfile standalone + fly.toml, build validado localmente); falta `fly auth login`.
+- Mazos: `laravel-entrevista` (15), `vue-entrevista` (15), `arquitectura-entrevista` (10) — material real de la guía de estudio del proyecto Supermercado.
+- 🔜 v2: importador NotebookLM → borrador de mazo. Futuro: cloze, multi-idioma, Capacitor.
