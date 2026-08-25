@@ -41,3 +41,8 @@ jobs:
       # la migración a Cloudflare en cada push.
       - name: Bundle de Cloudflare Workers (OpenNext)
         run: pnpm --filter @mnemo/web exec opennextjs-cloudflare build
+
+      # Dry-run sin auth: valida que wrangler acepte la config y encuentre
+      # el bundle (entry + assets). El deploy real lo hace deploy.yml.
+      - name: Validar deploy (wrangler dry-run)
+        run: pnpm --filter @mnemo/web exec wrangler deploy --dry-run
