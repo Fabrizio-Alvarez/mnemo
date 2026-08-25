@@ -159,7 +159,7 @@ Pasos que faltan (interactivos, con cuenta propia):
 1. **Neon**: cuenta → connection string en `.env.neon` (gitignored) → `corepack pnpm db:remoto` (migraciones + seed en un comando; validado local: seed idempotente 0 nuevas / 0 eliminadas).
 2. **Secrets del repo**: `gh secret set CLOUDFLARE_API_TOKEN` (token plantilla "Edit Cloudflare Workers") y `gh secret set CLOUDFLARE_ACCOUNT_ID`; luego crear la **variable** de repo `DEPLOY=true` (`gh variable set DEPLOY --body true`) — `deploy.yml` está dormido hasta que esa variable exista, para no marcar ✗ en cada push. El próximo push deploya → https://mnemo.<cuenta>.workers.dev
 3. **Secret del Worker**: dashboard CF → Worker `mnemo` → Settings → Variables → secret `DATABASE_URL` = URL de Neon.
-4. **Dominio**: comprar en Cloudflare Registrar → Workers → mnemo → Domains & Routes → Add custom domain.
+4. **Dominio** (decisión 2026-08-25): un solo dominio para todo el portafolio personal — apex para el sitio portfolio (Cloudflare Pages) y **subdominio `mnemo.`** para este Worker. Cada proyecto futuro cuelga de su propio subdominio (gratis en CF: Workers y Pages). Comprar en Cloudflare Registrar → Workers → mnemo → Settings → Domains & Routes → Add custom domain (`mnemo.tudominio`).
 
 ### Por qué el build no es local
 OpenNext crea symlinks del store de pnpm al armar `.next/standalone` → `EPERM` en Windows sin admin (y sobre OneDrive, peor). El bundle se arma y deploya **solo desde CI (Linux)**. Local queda `next dev` normal.
