@@ -156,7 +156,7 @@ Piezas ya implementadas y verificadas en CI:
 - Workflows: `ci.yml` arma el bundle de Workers en cada push (verde) y `deploy.yml` deploya con `wrangler-action` (secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`).
 
 Pasos que faltan (interactivos, con cuenta propia):
-1. **Neon**: cuenta → connection string en `.env.neon` (gitignored) → yo corro `prisma migrate deploy` + seed.
+1. **Neon**: cuenta → connection string en `.env.neon` (gitignored) → `corepack pnpm db:remoto` (migraciones + seed en un comando; validado local: seed idempotente 0 nuevas / 0 eliminadas).
 2. **Secrets del repo**: `gh secret set CLOUDFLARE_API_TOKEN` (token plantilla "Edit Cloudflare Workers") y `gh secret set CLOUDFLARE_ACCOUNT_ID`; luego crear la **variable** de repo `DEPLOY=true` (`gh variable set DEPLOY --body true`) — `deploy.yml` está dormido hasta que esa variable exista, para no marcar ✗ en cada push. El próximo push deploya → https://mnemo.<cuenta>.workers.dev
 3. **Secret del Worker**: dashboard CF → Worker `mnemo` → Settings → Variables → secret `DATABASE_URL` = URL de Neon.
 4. **Dominio**: comprar en Cloudflare Registrar → Workers → mnemo → Domains & Routes → Add custom domain.
