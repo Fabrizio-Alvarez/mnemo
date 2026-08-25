@@ -1,0 +1,16 @@
+{
+  // Cloudflare Workers — Mnemo (Next.js empaquetado por @opennextjs/cloudflare).
+  // Build local:  pnpm --filter @mnemo/web exec opennextjs-cloudflare build
+  // Deploy:       wrangler deploy (sube .open-next/worker.js + assets)
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mnemo",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-12-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  }
+  // DATABASE_URL (endpoint de Neon) se setea como secret:
+  //   npx wrangler secret put DATABASE_URL
+}

@@ -5,8 +5,8 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@mnemo/domain", "@mnemo/db"],
   // El cliente Prisma (y su engine nativo) no se bundlea: se resuelve en runtime.
   serverExternalPackages: ["@prisma/client"],
-  // Imagen de deploy autocontenida (Fly.io): .next/standalone + static.
-  output: "standalone",
+  // Deploy activo: Cloudflare Workers (opennextjs build arma el bundle).
+  // Si se retoma deploy/Dockerfile (Fly), re-habilitar `output: "standalone"`.
 };
 
 export default nextConfig;

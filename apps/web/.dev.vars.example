@@ -1,0 +1,2 @@
+# Variables locales para `wrangler dev` (NO se commitea; crear con tu URL de Neon)
+# DATABASE_URL=postgres://user:pass@ep-xxx.neon.tech/neondb?sslmode=require

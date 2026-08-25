@@ -35,3 +35,9 @@ jobs:
 
       - name: Build de producción (Next.js)
         run: pnpm build
+
+      # El bundle de Workers se arma con OpenNext, que crea symlinks del store
+      # de pnpm (imposible en Windows sin admin). En Linux/CI vuela — y valida
+      # la migración a Cloudflare en cada push.
+      - name: Bundle de Cloudflare Workers (OpenNext)
+        run: pnpm --filter @mnemo/web exec opennextjs-cloudflare build
