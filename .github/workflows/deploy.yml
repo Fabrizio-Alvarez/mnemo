@@ -9,6 +9,10 @@ on:
 
 jobs:
   deploy:
+    # Dormido hasta que existan los secrets: crear la variable de repo
+    # DEPLOY=true (Settings → Secrets and variables → Actions → Variables)
+    # después de cargar CLOUDFLARE_API_TOKEN y CLOUDFLARE_ACCOUNT_ID.
+    if: vars.DEPLOY == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

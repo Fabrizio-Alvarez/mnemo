@@ -157,7 +157,7 @@ Piezas ya implementadas y verificadas en CI:
 
 Pasos que faltan (interactivos, con cuenta propia):
 1. **Neon**: cuenta → connection string en `.env.neon` (gitignored) → yo corro `prisma migrate deploy` + seed.
-2. **Secrets del repo**: `gh secret set CLOUDFLARE_API_TOKEN` (token plantilla "Edit Cloudflare Workers") y `gh secret set CLOUDFLARE_ACCOUNT_ID` → push o `workflow_dispatch` deploya → https://mnemo.<cuenta>.workers.dev
+2. **Secrets del repo**: `gh secret set CLOUDFLARE_API_TOKEN` (token plantilla "Edit Cloudflare Workers") y `gh secret set CLOUDFLARE_ACCOUNT_ID`; luego crear la **variable** de repo `DEPLOY=true` (`gh variable set DEPLOY --body true`) — `deploy.yml` está dormido hasta que esa variable exista, para no marcar ✗ en cada push. El próximo push deploya → https://mnemo.<cuenta>.workers.dev
 3. **Secret del Worker**: dashboard CF → Worker `mnemo` → Settings → Variables → secret `DATABASE_URL` = URL de Neon.
 4. **Dominio**: comprar en Cloudflare Registrar → Workers → mnemo → Domains & Routes → Add custom domain.
 
