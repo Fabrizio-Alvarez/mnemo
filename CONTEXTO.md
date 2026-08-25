@@ -114,19 +114,19 @@ mnemo/
 ├─ CONTEXTO.md / DESARROLLO.md   # diseño + guía de lectura del código
 ├─ pnpm-workspace.yaml        # apps/*, packages/* + onlyBuiltDependencies
 ├─ docker-compose.yml         # Postgres 16 local (mnemo:mnemo@localhost:5432/mnemo)
-├─ .github/workflows/ci.yml   # CI: vitest + tsc + build (sin BD)
-├─ deploy/Dockerfile          # imagen Next standalone (multi-stage) para Fly.io
-├─ fly.toml                   # config de deploy (región eze, healthcheck)
+├─ .github/workflows/       # ci.yml (tests+tsc+build+bundle Workers) y deploy.yml (wrangler-action)
+├─ deploy/Dockerfile        # [archivado] alternativa Fly — requiere output: standalone
 ├─ scripts/seed-decks.ts      # decks/*.md → upsert en Postgres (usa @mnemo/domain + @mnemo/db)
 ├─ decks/                     # FUENTE DE VERDAD del contenido (3 mazos: laravel/vue/arquitectura)
 ├─ packages/
 │  ├─ domain/                 # @mnemo/domain — TS puro: parser .md + sha256 puro + cardId + slugify
 │  │  └─ src/{parse,frontmatter,id,sha256,sm2,quiz,stats,deck}.ts   # SM-2 + quiz + rachas. Vitest (41 tests).
-│  └─ db/                     # @mnemo/db — schema.prisma (Deck/Card/ReviewLog) + cliente Prisma singleton
+│  └─ db/                     # @mnemo/db — schema.prisma (driverAdapters) + cliente dual (Node/Workers)
 └─ apps/
    └─ web/                    # Next.js 15.5 App Router + TS strict + Tailwind 4
+      ├─ wrangler.jsonc       # config de Cloudflare Workers (nodejs_compat, assets)
+      ├─ open-next.config.ts  # adapter OpenNext
       └─ src/app/             # / , /decks/[slug], /study/[slug] (?all=1), /stats, /quiz/[slug] + actions.ts
-         └─ components/       # SesionEstudio (flip, re-encolar, deshacer Z) y QuizSesion
 ```
 
 Schema Prisma (implementado, tablas `decks`/`cards`/`review_logs`):
@@ -146,19 +146,23 @@ pnpm seed         # re-sincroniza decks/*.md → BD (idempotente; baja tarjetas 
 pnpm db:studio    # Prisma Studio para inspeccionar
 ```
 
-## Deploy (Fly.io) — preparado, falta autenticar
+## Deploy — Cloudflare Workers + Neon (decisión 2026-08-25, reemplaza Fly)
 
-La imagen (`deploy/Dockerfile`, Next standalone) y `fly.toml` ya están; validación local con `docker build`. Falta la cuenta (login interactivo). Cuando quieras:
+Stack elegido: **Workers free** (100k req/día) + **Neon free** (Postgres 0.5 GB) + **dominio en Cloudflare Registrar** (~US$10/año, única parte paga). Fly quedó descartado (trial vencido, requiere tarjeta); `deploy/Dockerfile` queda en el repo como alternativa archivada (requiere re-habilitar `output: "standalone"` en `next.config.ts`).
 
-```bash
-fly auth login
-fly launch --no-deploy          # crea la app (usa el fly.toml del repo)
-fly postgres create --name mnemo-pg
-fly postgres attach mnemo-pg    # setea DATABASE_URL como secret de la app
-fly deploy
-```
+Piezas ya implementadas y verificadas en CI:
+- `apps/web/wrangler.jsonc` (nodejs_compat + assets) + `open-next.config.ts` (`defineCloudflareConfig`).
+- `packages/db`: `previewFeatures = ["driverAdapters"]` + **cliente dual** — engine clásico en Node; en Workers, `PrismaNeonHttp` (adapter v7: connection string + `{ arrayMode: false, fullResults: false }`) hablando fetch contra Neon.
+- Workflows: `ci.yml` arma el bundle de Workers en cada push (verde) y `deploy.yml` deploya con `wrangler-action` (secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`).
 
-Después de deployar la primera vez: `fly ssh console -C "npx prisma migrate deploy"` (o correrlo como release command) y `pnpm seed` apuntando a la BD remota.
+Pasos que faltan (interactivos, con cuenta propia):
+1. **Neon**: cuenta → connection string en `.env.neon` (gitignored) → yo corro `prisma migrate deploy` + seed.
+2. **Secrets del repo**: `gh secret set CLOUDFLARE_API_TOKEN` (token plantilla "Edit Cloudflare Workers") y `gh secret set CLOUDFLARE_ACCOUNT_ID` → push o `workflow_dispatch` deploya → https://mnemo.<cuenta>.workers.dev
+3. **Secret del Worker**: dashboard CF → Worker `mnemo` → Settings → Variables → secret `DATABASE_URL` = URL de Neon.
+4. **Dominio**: comprar en Cloudflare Registrar → Workers → mnemo → Domains & Routes → Add custom domain.
+
+### Por qué el build no es local
+OpenNext crea symlinks del store de pnpm al armar `.next/standalone` → `EPERM` en Windows sin admin (y sobre OneDrive, peor). El bundle se arma y deploya **solo desde CI (Linux)**. Local queda `next dev` normal.
 
 ## ⚠️ Gotchas aprendidos en la implementación
 
@@ -169,6 +173,8 @@ Después de deployar la primera vez: `fly ssh console -C "npx prisma migrate dep
 - **NO llamar `revalidatePath` en la action `calificar`:** el refresh de router que dispara re-renderiza `/study/[slug]` con la lista de vencidas encogida → salta tarjetas y borra el resumen de sesión. `SesionEstudio` además congela el prop `cards` en un `useState` (snapshot). Como todas las rutas son `force-dynamic`, cada navegación trae datos frescos igual.
 - **SHA-256 propio en el dominio:** síncrono y sin `node:crypto` ni WebCrypto, para que `cardId` corra idéntico en Node, browser y un futuro Capacitor. Verificado contra vectores NIST en tests.
 - **SM-2 con 4 botones:** grades 0–3 mapean a calidad q 2–5 (umbral q≥3). Fallo: reps=0, intervalo=1d, lapses++, ease intacto (SM-2 clásico). El ease baja solo con aprobaciones débiles (Difícil), piso 1.3.
+- **OpenNext (Cloudflare) no build-ea en Windows:** arma `.next/standalone` con symlinks del store de pnpm → `EPERM` sin admin. Solución: bundle y deploy viven en CI Linux (`ci.yml` valida, `deploy.yml` deploya). `next build` SÍ funciona local (webpack).
+- **@prisma/adapter-neon v7 cambió la API:** `PrismaNeonHttp` (camelCase) recibe `(connectionString, { arrayMode, fullResults })` — NO el cliente `neon()` de versiones anteriores.
 
 ## Preguntas abiertas (decidir al arrancar)
 
@@ -182,6 +188,4 @@ Después de deployar la primera vez: `fly ssh console -C "npx prisma migrate dep
 - ✅ **v0 completa y verificada end-to-end** (2026-08-19): dominio (parser + hash + SM-2, 28 tests Vitest sin DB) · Prisma + migración init · seed idempotente (verificado doble corrida: 0 nuevas, 0 eliminadas) · app Next (dashboard / mazo / estudio) · sesión completa probada en browser (15/15 tarjetas sin saltos, resumen con conteos exactos) · persistencia verificada en Postgres (36 review_logs, ease/interval/reps/lapses correctos por grade).
 - ✅ **v1 completa y verificada end-to-end** (2026-08-24): re-encolado de "Otra vez" (máx 1 por tarjeta, resumen = última calificación por tarjeta) · **deshacer** (Z) con estado previo en `review_logs` (migración con backfill; undo verificado en BD: fila borrada + card restaurado exacto) · "repasar igual" (`?all=1` con banner) · `/stats` (racha, mejor racha, 30 días, por mazo — números auditados contra la BD) · `/quiz/[slug]` (quiz completo en browser, **cero escrituras a la BD**) · dominio 41/41 tests.
 - 🔼 **Repo público + CI**: https://github.com/Fabrizio-Alvarez/mnemo — GitHub Actions (vitest + tsc domain/web + build) en cada push.
-- Deploy a Fly.io preparado (Dockerfile standalone + fly.toml, build validado localmente); falta `fly auth login`.
-- Mazos: `laravel-entrevista` (15), `vue-entrevista` (15), `arquitectura-entrevista` (10) — material real de la guía de estudio del proyecto Supermercado.
-- 🔜 v2: importador NotebookLM → borrador de mazo. Futuro: cloze, multi-idioma, Capacitor.
+- 🚀 **Migración a Cloudflare Workers + Neon completa en código y CI** (2026-08-25): cliente Prisma dual (Node/Workers), wrangler.jsonc + open-next.config.ts, CI arma el bundle de Workers en Linux (verde). Faltan solo los pasos interactivos de cuenta (Neon, secrets del repo, secret `DATABASE_URL` del Worker, dominio) — ver sección Deploy.

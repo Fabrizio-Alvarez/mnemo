@@ -216,6 +216,6 @@ pnpm db:studio # inspeccionar la BD
 
 - ✅ **v0** (2026-08-19): sesión de 15 tarjetas en browser, persistencia auditada en Postgres (36 review_logs con ease/interval/reps/lapses correctos por grade).
 - ✅ **v1** (2026-08-24): re-encolado + deshacer (auditado en BD: fila borrada, card restaurado exacto, cadena prev→next correcta) · `/stats` (números verificados contra la BD) · `/quiz` (juego completo, cero escrituras) · dominio 41/41.
-- 🔼 Repo público con CI: https://github.com/Fabrizio-Alvarez/mnemo (Actions: vitest + tsc + build en cada push). Deploy a Fly.io preparado (`deploy/Dockerfile` standalone + `fly.toml`).
+- 🔼 Repo público con CI: https://github.com/Fabrizio-Alvarez/mnemo (Actions: vitest + tsc + build + bundle de Workers en cada push; `deploy.yml` deploya a Cloudflare con wrangler-action — 2026-08-25, stack final: Workers free + Neon free + dominio CF Registrar; ver CONTEXTO.md §Deploy).
 - 🔜 **v2**: importador NotebookLM → borrador de mazo `.md`.
 - Futuro: cloze, Capacitor, multi-idioma.
