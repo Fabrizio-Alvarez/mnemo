@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@mnemo/db";
+import { getPrisma } from "@mnemo/db";
 import { armarQuiz } from "@mnemo/domain";
 import { tarjetasDeMazo } from "@/lib/datos";
 import QuizSesion from "@/components/QuizSesion";
@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PaginaQuiz({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const prisma = await getPrisma();
   const [deck, cards] = await Promise.all([
     prisma.deck.findUnique({ where: { slug }, select: { title: true } }),
     tarjetasDeMazo(slug),

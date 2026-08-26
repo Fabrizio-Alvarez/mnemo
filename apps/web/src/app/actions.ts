@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@mnemo/db";
+import { getPrisma } from "@mnemo/db";
 import { schedule, type Grade } from "@mnemo/domain";
 
 /**
@@ -16,6 +16,7 @@ import { schedule, type Grade } from "@mnemo/domain";
 export async function calificar(cardId: string, deckSlug: string, grade: number): Promise<{ intervalDays: number } | null> {
   if (!Number.isInteger(grade) || grade < 0 || grade > 3) throw new Error(`Grade inválido: ${grade}`);
 
+  const prisma = await getPrisma();
   const card = await prisma.card.findUnique({ where: { id: cardId } });
   if (card === null) return null;
 
@@ -60,6 +61,7 @@ export async function calificar(cardId: string, deckSlug: string, grade: number)
  * que solo se deshaga la última acción de la cola (botón/ui), no cualquiera.
  */
 export async function deshacerUltima(cardId: string): Promise<boolean> {
+  const prisma = await getPrisma();
   const ultima = await prisma.reviewLog.findFirst({
     where: { cardId },
     orderBy: [{ reviewedAt: "desc" }, { id: "desc" }],

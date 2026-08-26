@@ -8,11 +8,12 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { cardId, parseDeck, slugify } from "@mnemo/domain";
-import { prisma } from "@mnemo/db";
+import { getPrisma } from "@mnemo/db";
 
 const DECKS_DIR = join(import.meta.dirname, "..", "decks");
 
 async function main(): Promise<void> {
+  const prisma = await getPrisma();
   const files = (await readdir(DECKS_DIR)).filter((f) => f.endsWith(".md")).sort();
   if (files.length === 0) throw new Error(`No hay mazos .md en ${DECKS_DIR}`);
 
@@ -62,10 +63,13 @@ async function main(): Promise<void> {
   const orphanDecks = await prisma.deck.deleteMany({ where: { slug: { notIn: slugs } } });
   if (orphanDecks.count > 0) console.log(`Mazos sin archivo .md eliminados: ${orphanDecks.count}`);
 }
-
 main()
-  .then(() => prisma.$disconnect())
+  .then(async () => {
+    const prisma = await getPrisma();
+    await prisma.$disconnect();
+  })
   .catch(async (error) => {
+    const prisma = await getPrisma();
     await prisma.$disconnect();
     console.error(error);
     process.exit(1);

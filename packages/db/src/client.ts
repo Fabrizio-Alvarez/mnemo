@@ -1,5 +1,4 @@
 import { PrismaNeonHTTP } from "@prisma/adapter-neon";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client.ts";
 
 /**
@@ -13,9 +12,10 @@ import { PrismaClient } from "../generated/prisma/client.ts";
  * - **Node** (dev local, seed, scripts): `PrismaPg` — driver TCP nativo
  *   contra Postgres local (docker) o remoto. Soporta transacciones.
  *
- * `pg` y `@prisma/adapter-pg` se externalizan en next.config.ts
- * (serverExternalPackages) para que no se bundleen en el build de
- * Workers — en ese runtime la rama de PrismaPg nunca se ejecuta.
+ * `PrismaPg` se carga con dynamic import porque `pg` es un módulo nativo
+ * de Node que no se puede bundleear para Workers (OpenNext/Turbopack
+ * no soporta serverExternalPackages para paquetes del store de pnpm).
+ * Excepción a ts-no-dynamic-import: platform-specific module.
  *
  * La detección de Workers combina dos señales:
  *   1. `navigator.userAgent === "Cloudflare-Workers"` (oficial de workerd)
@@ -30,25 +30,36 @@ function esWorkersRuntime(): boolean {
   return url !== undefined && !url.includes("localhost");
 }
 
-function crearCliente(): PrismaClient {
+// Singleton async: los consumers usan `await getPrisma()`.
+let prismaPromise: Promise<PrismaClient> | null = null;
+
+export function getPrisma(): Promise<PrismaClient> {
+  if (prismaPromise !== null) return prismaPromise;
+
   const url = process.env.DATABASE_URL;
   if (url === undefined || url === "") {
     throw new Error("DATABASE_URL no está definido");
   }
 
   if (esWorkersRuntime()) {
-    return new PrismaClient({
-      adapter: new PrismaNeonHTTP(url, { arrayMode: false, fullResults: false }),
-    });
+    prismaPromise = Promise.resolve(
+      new PrismaClient({
+        adapter: new PrismaNeonHTTP(url, { arrayMode: false, fullResults: false }),
+      }),
+    );
+  } else {
+    // Dynamic import: pg es nativo de Node, no existe en Workers.
+    prismaPromise = import("@prisma/adapter-pg").then(({ PrismaPg }) =>
+      new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) }),
+    );
   }
 
-  return new PrismaClient({
-    adapter: new PrismaPg({ connectionString: url }),
+  // Cache en globalThis para dev (evita abrir pool por hot-reload).
+  prismaPromise.then((client) => {
+    if (process.env.NODE_ENV !== "production") {
+      (globalThis as unknown as { prisma?: PrismaClient }).prisma = client;
+    }
   });
+
+  return prismaPromise;
 }
-
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-
-export const prisma = globalForPrisma.prisma ?? crearCliente();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

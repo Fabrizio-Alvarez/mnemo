@@ -1,4 +1,4 @@
-import { prisma } from "@mnemo/db";
+import { getPrisma } from "@mnemo/db";
 import { mejorRacha, rachaActual } from "@mnemo/domain";
 
 export interface MazoResumen {
@@ -15,6 +15,7 @@ function contarPorMazo(rows: { deckSlug: string; _count: { _all: number } }[]): 
 }
 
 export async function mazosConEstado(): Promise<MazoResumen[]> {
+  const prisma = await getPrisma();
   const [decks, totales, vencidas] = await Promise.all([
     prisma.deck.findMany({ orderBy: { title: "asc" } }),
     prisma.card.groupBy({ by: ["deckSlug"], _count: { _all: true } }),
@@ -40,6 +41,7 @@ export interface DetalleMazo extends MazoResumen {
 }
 
 export async function mazoPorSlug(slug: string): Promise<DetalleMazo | null> {
+  const prisma = await getPrisma();
   const deck = await prisma.deck.findUnique({ where: { slug } });
   if (deck === null) return null;
 
@@ -69,6 +71,7 @@ export async function mazoPorSlug(slug: string): Promise<DetalleMazo | null> {
 
 /** Todas las tarjetas del mazo (para "repasar igual" y modo quiz). */
 export async function tarjetasDeMazo(slug: string): Promise<{ id: string; question: string; answer: string }[]> {
+  const prisma = await getPrisma();
   return prisma.card.findMany({
     where: { deckSlug: slug },
     orderBy: { dueAt: "asc" },
@@ -94,6 +97,7 @@ function diaLocal(fecha: Date): string {
 }
 
 export async function statsGenerales(): Promise<StatsGenerales> {
+  const prisma = await getPrisma();
   const ahora = new Date();
   const [logs, decks] = await Promise.all([
     // Escala personal: traer solo reviewedAt de TODO el historial y agregar en
