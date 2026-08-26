@@ -1,42 +1,46 @@
 import { PrismaNeonHTTP } from "@prisma/adapter-neon";
-import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../generated/prisma/client.ts";
 
 /**
- * Cliente Prisma dual, la única puerta a la BD del monorepo:
+ * Cliente Prisma sin engine binario de Rust (engineType = "client").
+ * Siempre usa un driver adapter — no hay fallback a engine nativo:
  *
- * - **Node** (dev local, seed, scripts): `PrismaClient` directo con su engine
- *   nativo contra `DATABASE_URL` (Postgres local o remoto por TCP).
- * - **Cloudflare Workers** (producción): sin runtime de Node, el engine no
- *   existe — se instancia con el **adapter Neon HTTP** (`PrismaNeonHTTP`),
- *   que habla fetch contra la BD Neon. `DATABASE_URL` llega como secret de
- *   wrangler y apunta al endpoint HTTP de Neon.
+ * - **Cloudflare Workers** (producción): `PrismaNeonHTTP` — habla fetch
+ *   contra la BD Neon. `DATABASE_URL` llega como secret de wrangler.
+ *   Limitación: no soporta transacciones interactivas (las del código
+ *   usan `$transaction([])` batch, que sí funciona).
+ * - **Node** (dev local, seed, scripts): `PrismaPg` — driver TCP nativo
+ *   contra Postgres local (docker) o remoto. Soporta transacciones.
  *
  * La detección de Workers combina dos señales:
  *   1. `navigator.userAgent === "Cloudflare-Workers"` (oficial de workerd)
- *   2. Ausencia de `process.env.DATABASE_URL` con formato localhost
- * OpenNext puede transpilar `navigator` de forma que la primera falle,
- * por eso la segunda es el fallback.
+ *   2. `DATABASE_URL` no contiene "localhost" (fallback si OpenNext
+ *      transpila `navigator` de forma que la primera falle)
  */
 function esWorkersRuntime(): boolean {
   if (typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers") {
     return true;
   }
-  // Fallback: en Workers no hay .env local con localhost.
-  // Si DATABASE_URL apunta a Neon (no localhost), estamos en remoto/Workers.
   const url = process.env.DATABASE_URL;
   return url !== undefined && !url.includes("localhost");
 }
 
 function crearCliente(): PrismaClient {
-  if (!esWorkersRuntime()) return new PrismaClient();
-
   const url = process.env.DATABASE_URL;
   if (url === undefined || url === "") {
-    throw new Error("DATABASE_URL no está definido (en Workers llega como secret de wrangler)");
+    throw new Error("DATABASE_URL no está definido");
   }
-  // adapter v6: recibe la connection string + opciones del driver HTTP.
+
+  if (esWorkersRuntime()) {
+    return new PrismaClient({
+      adapter: new PrismaNeonHTTP(url, { arrayMode: false, fullResults: false }),
+    });
+  }
+
+  // Node: driver TCP nativo (Postgres local o remoto).
   return new PrismaClient({
-    adapter: new PrismaNeonHTTP(url, { arrayMode: false, fullResults: false }),
+    adapter: new PrismaPg({ connectionString: url }),
   });
 }
 

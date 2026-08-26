@@ -1,9 +1,9 @@
 generator client {
-  provider        = "prisma-client-js"
-  // Cloudflare Workers no tiene runtime de Node: el engine clásico no corre.
-  // Con driverAdapters, el mismo cliente acepta un adapter (Neon HTTP) allá
-  // y el engine normal en Node (local, seed, scripts). Ver src/client.ts.
-  previewFeatures = ["driverAdapters"]
+  provider   = "prisma-client"
+  output     = "../generated/prisma"
+  engineType = "client"
+  // Sin engine binario de Rust: el driver adapter maneja la conexión.
+  // En Workers: PrismaNeonHTTP (fetch). En Node: PrismaNeon (WS pool).
 }
 
 datasource db {
