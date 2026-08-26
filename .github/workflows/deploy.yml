@@ -1,5 +1,9 @@
 # Deploy a Cloudflare Workers (build en Linux — OpenNext no soporta Windows)
-# Requiere los secrets CLOUDFLARE_API_TOKEN y CLOUDFLARE_ACCOUNT_ID en el repo.
+# Requiere los secrets del repo:
+#   CLOUDFLARE_API_TOKEN  — token plantilla "Edit Cloudflare Workers"
+#   CLOUDFLARE_ACCOUNT_ID — Account ID del dashboard CF
+#   NEON_DATABASE_URL     — connection string de Neon (se inyecta como secret del Worker)
+# Y la variable de repo DEPLOY=true (despierta el workflow; sin ella queda dormido).
 name: Deploy
 
 on:
@@ -9,9 +13,6 @@ on:
 
 jobs:
   deploy:
-    # Dormido hasta que existan los secrets: crear la variable de repo
-    # DEPLOY=true (Settings → Secrets and variables → Actions → Variables)
-    # después de cargar CLOUDFLARE_API_TOKEN y CLOUDFLARE_ACCOUNT_ID.
     if: vars.DEPLOY == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -32,6 +33,17 @@ jobs:
 
       - name: Bundle de Cloudflare Workers (OpenNext)
         run: pnpm --filter @mnemo/web exec opennextjs-cloudflare build
+
+      # Setea el secret DATABASE_URL del Worker antes del deploy.
+      # wrangler secret put lee el valor de stdin; le pasamos el secret del repo.
+      # Si el Worker no existe todavía, wrangler lo crea con el secret.
+      - name: Setear DATABASE_URL del Worker
+        run: |
+          echo "${{ secrets.NEON_DATABASE_URL }}" | pnpm --filter @mnemo/web exec wrangler secret put DATABASE_URL
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        working-directory: apps/web
 
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
