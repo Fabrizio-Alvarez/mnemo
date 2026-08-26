@@ -1,4 +1,4 @@
-import { PrismaNeonHttp } from "@prisma/adapter-neon";
+import { PrismaNeonHTTP } from "@prisma/adapter-neon";
 import { PrismaClient } from "@prisma/client";
 
 /**
@@ -24,9 +24,9 @@ function crearCliente(): PrismaClient {
   if (url === undefined || url === "") {
     throw new Error("DATABASE_URL no está definido (en Workers llega como secret de wrangler)");
   }
-  // adapter v7: recibe la connection string + opciones del driver HTTP.
+  // adapter v6: recibe la connection string + opciones del driver HTTP.
   return new PrismaClient({
-    adapter: new PrismaNeonHttp(url, { arrayMode: false, fullResults: false }),
+    adapter: new PrismaNeonHTTP(url, { arrayMode: false, fullResults: false }),
   });
 }
 
