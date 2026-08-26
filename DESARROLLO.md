@@ -132,7 +132,7 @@ Tres modelos (`prisma/schema.prisma`):
 
 Verificado en la práctica: segunda corrida imprime `0 nuevas, 0 eliminadas`. Podés correrlo mil veces.
 
-## 7. `@mnemo/web` — cinco rutas y dos server actions
+## 7. `@mnemo/web` — seis rutas y dos server actions
 
 | Ruta | Archivo | Qué hace |
 |---|---|---|
@@ -141,6 +141,7 @@ Verificado en la práctica: segunda corrida imprime `0 nuevas, 0 eliminadas`. Po
 | `/study/[slug]` | `src/app/study/[slug]/page.tsx` | Vencidas → `SesionEstudio`. Con `?all=1`: **repaso libre** (todo el mazo, con banner) |
 | `/stats` | `src/app/stats/page.tsx` | Racha actual y mejor, barras de 30 días, actividad por mazo (todo de `review_logs`) |
 | `/quiz/[slug]` | `src/app/quiz/[slug]/page.tsx` + `QuizSesion` | **Modo práctica**: opción múltiple derivada, cero escrituras a la BD |
+| `/importar` | `src/app/importar/page.tsx` | Importador NotebookLM: textarea → previsualización live → descarga `.md` (cliente puro, sin BD) |
 
 Todas `force-dynamic`: los datos cambian con cada repaso, nada de caché de página.
 
@@ -185,7 +186,15 @@ Regla general que deja: **una sesión interactiva es un snapshot; el server no d
 
 Decisión clave: el quiz es **modo práctica** — no llama server actions, no escribe nada. Un quiz auto-calificado no es una autoevaluación honesta (adivinás) y contaminaría el scheduling SM-2. Así el `.md` alimenta DOS modos con la misma fuente y cero duplicación: la promesa de extensibilidad del diseño, cumplida.
 
-### Las stats — el log append-only pagando su lugar
+### El importador (v2) — del NotebookLM al `.md`
+
+`/importar` es una página **cliente puro** (sin server actions, sin escrituras a la BD): pegas el FAQ que genera NotebookLM, ajustás metadatos y descargás un `.md` listo para `pnpm seed`. Tres funciones del dominio:
+
+- `importarNotebookLM(texto)` (`domain/src/importar.ts`): parsea el formato FAQ de NotebookLM (`**Q: pregunta**` + respuesta) → `CardSource[]`. Acepta variantes (`Q:` sin bold, `### Q:`, `### ¿pregunta?`, `**¿pregunta?**`) para cubrir otros outputs y pegados manuales. Texto antes de la primera pregunta (intro/título) se ignora; respuestas vacías se descartan.
+- `generarDeckMD(meta, cards)`: **inversa de `parseDeck`** — arma el `.md` canónico (frontmatter + `## pregunta` + respuesta). Verificado en test round-trip: `importar → generar → parseDeck` = mismo contenido.
+- `slugify` (ya existente): para sugerir el nombre de archivo.
+
+La página usa `useMemo` para previsualizar en tiempo real (cambios en el textarea o metadatos recalculan al instante). Descarga vía `Blob` + `<a download>` — sin tocar el filesystem del server. La promesa de "contenido en Markdown, fácil de generar" se cumple: el flujo completo es **pegar → previsualizar → descargar → `pnpm seed`**, cero código manual.
 
 `/stats` no consulta `cards`: todo sale de `review_logs`. La lógica de rachas (`rachaActual`, `mejorRacha`) es **función pura del dominio** (testeada sin BD): recibe un `Set` de días activos y cuenta consecutivos; si hoy no repasaste, la racha sigue viva hasta ayer (no te castiga por estudiar a la noche). La agregación por día es una pasada O(n) en JS sobre `reviewedAt` — Prisma no trunca fechas en `groupby` y a escala personal miles de filas no son nada.
 
@@ -195,7 +204,7 @@ Decisión clave: el quiz es **modo práctica** — no llama server actions, no e
 ```bash
 pnpm setup     # install + postgres (docker) + migrate + seed
 pnpm dev       # http://localhost:3000
-pnpm test      # 41 tests del dominio (sin DB)
+pnpm test      # 55 tests del dominio (sin DB)
 pnpm seed      # re-sync decks/ → BD (idempotente)
 pnpm db:studio # inspeccionar la BD
 ```
@@ -217,5 +226,5 @@ pnpm db:studio # inspeccionar la BD
 - ✅ **v0** (2026-08-19): sesión de 15 tarjetas en browser, persistencia auditada en Postgres (36 review_logs con ease/interval/reps/lapses correctos por grade).
 - ✅ **v1** (2026-08-24): re-encolado + deshacer (auditado en BD: fila borrada, card restaurado exacto, cadena prev→next correcta) · `/stats` (números verificados contra la BD) · `/quiz` (juego completo, cero escrituras) · dominio 41/41.
 - 🔼 Repo público con CI: https://github.com/Fabrizio-Alvarez/mnemo (Actions: vitest + tsc + build + bundle de Workers en cada push; `deploy.yml` deploya a Cloudflare con wrangler-action — 2026-08-25, stack final: Workers free + Neon free + dominio CF Registrar; ver CONTEXTO.md §Deploy).
-- 🔜 **v2**: importador NotebookLM → borrador de mazo `.md`.
+- ✅ **v2** (2026-08-26): importador NotebookLM en `/importar` — `importarNotebookLM` parsea FAQ (`**Q: ...**` y variantes) → `CardSource[]`; `generarDeckMD` es la inversa de `parseDeck` (verificado en test round-trip). Página cliente: textarea + metadatos + previsualización live + descarga `.md`. Dominio 55/55 tests.
 - Futuro: cloze, Capacitor, multi-idioma.

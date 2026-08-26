@@ -62,7 +62,7 @@ El sistema de archivos de mazos es el contrato; los modos son módulos que lo co
 
 - ✅ **v0**: app Next (SSR) — parser de `decks/*.md` en seed → tarjetas en Postgres (Prisma), sesión de repaso, SM-2, estado en la BD.
 - ✅ **v1**: stats (racha actual y mejor, últimos 30 días, actividad por mazo, desde `review_logs`) · re-encolado y deshacer en sesión · "repasar igual" (todo el mazo) · modo quiz.
-- **v2**: importador asistido (pegar texto de NotebookLM → generar borrador de mazo `.md`).
+- ✅ **v2**: importador asistido (`/importar` — pegar FAQ de NotebookLM → previsualización live → descargar `.md` listo para `pnpm seed`).
 
 ## Stack — ✅ DECIDIDO (2026-08-18): Next.js + TS + Prisma/PostgreSQL, móvil vía Capacitor
 
@@ -189,3 +189,4 @@ OpenNext crea symlinks del store de pnpm al armar `.next/standalone` → `EPERM`
 - ✅ **v1 completa y verificada end-to-end** (2026-08-24): re-encolado de "Otra vez" (máx 1 por tarjeta, resumen = última calificación por tarjeta) · **deshacer** (Z) con estado previo en `review_logs` (migración con backfill; undo verificado en BD: fila borrada + card restaurado exacto) · "repasar igual" (`?all=1` con banner) · `/stats` (racha, mejor racha, 30 días, por mazo — números auditados contra la BD) · `/quiz/[slug]` (quiz completo en browser, **cero escrituras a la BD**) · dominio 41/41 tests.
 - 🔼 **Repo público + CI**: https://github.com/Fabrizio-Alvarez/mnemo — GitHub Actions (vitest + tsc domain/web + build) en cada push.
 - 🚀 **Migración a Cloudflare Workers + Neon completa en código y CI** (2026-08-25): cliente Prisma dual (Node/Workers), wrangler.jsonc + open-next.config.ts, CI arma el bundle de Workers en Linux (verde). Faltan solo los pasos interactivos de cuenta (Neon, secrets del repo, secret `DATABASE_URL` del Worker, dominio) — ver sección Deploy.
+- ✅ **v2 completa** (2026-08-26): importador NotebookLM en `/importar` — `importarNotebookLM` + `generarDeckMD` en el dominio (14 tests, inversa de `parseDeck` verificada), página cliente con textarea + metadatos + previsualización live + descarga `.md`. Dominio 55/55 tests.

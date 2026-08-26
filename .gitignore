@@ -12,6 +12,8 @@ packages/db/generated/
 # OS / editor
 .DS_Store
 Thumbs.db
+nul
+*.log
 
 # testing
 coverage/

@@ -17,3 +17,4 @@ export { DeckParseError } from "./deck.ts";
 export { armarQuiz, mezclar } from "./quiz.ts";
 export type { ItemQuiz } from "./quiz.ts";
 export { mejorRacha, rachaActual } from "./stats.ts";
+export { importarNotebookLM, generarDeckMD } from "./importar.ts";

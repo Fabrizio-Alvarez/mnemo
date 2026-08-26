@@ -24,6 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/stats" className="hover:text-foreground">
                 Stats
               </Link>
+              <Link href="/importar" className="hover:text-foreground">
+                Importar
+              </Link>
             </nav>
           </div>
         </header>
