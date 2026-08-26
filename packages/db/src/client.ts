@@ -13,6 +13,10 @@ import { PrismaClient } from "../generated/prisma/client.ts";
  * - **Node** (dev local, seed, scripts): `PrismaPg` — driver TCP nativo
  *   contra Postgres local (docker) o remoto. Soporta transacciones.
  *
+ * `pg` y `@prisma/adapter-pg` se externalizan en next.config.ts
+ * (serverExternalPackages) para que no se bundleen en el build de
+ * Workers — en ese runtime la rama de PrismaPg nunca se ejecuta.
+ *
  * La detección de Workers combina dos señales:
  *   1. `navigator.userAgent === "Cloudflare-Workers"` (oficial de workerd)
  *   2. `DATABASE_URL` no contiene "localhost" (fallback si OpenNext
@@ -38,7 +42,6 @@ function crearCliente(): PrismaClient {
     });
   }
 
-  // Node: driver TCP nativo (Postgres local o remoto).
   return new PrismaClient({
     adapter: new PrismaPg({ connectionString: url }),
   });
