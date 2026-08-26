@@ -1,9 +1,9 @@
 generator client {
-  provider   = "prisma-client"
-  output     = "../generated/prisma"
-  engineType = "client"
-  // Sin engine binario de Rust: el driver adapter maneja la conexión.
-  // En Workers: PrismaNeonHTTP (fetch). En Node: PrismaNeon (WS pool).
+  provider = "prisma-client-js"
+  // OpenNext patchea el cliente generado para el runtime de Workers.
+  // SIN output directory: con output custom, OpenNext no puede patchearlo.
+  // El adapter (Neon HTTP en Workers, pg en Node) maneja la conexión.
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {

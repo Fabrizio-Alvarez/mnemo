@@ -1,21 +1,20 @@
 import { PrismaNeonHTTP } from "@prisma/adapter-neon";
-import { PrismaClient } from "../generated/prisma/client.ts";
+import { PrismaClient } from "@prisma/client";
 
 /**
- * Cliente Prisma sin engine binario de Rust (engineType = "client").
- * Siempre usa un driver adapter — no hay fallback a engine nativo:
+ * Cliente Prisma dual, patrón recomendado por OpenNext para Workers:
+ * cliente por-request (React `cache`) — NO global, porque los pools de
+ * conexión no se pueden reusar entre requests en Workers.
  *
  * - **Cloudflare Workers** (producción): `PrismaNeonHTTP` — habla fetch
  *   contra la BD Neon. `DATABASE_URL` llega como secret de wrangler.
- *   Limitación: no soporta transacciones interactivas (las del código
- *   usan `$transaction([])` batch, que sí funciona).
  * - **Node** (dev local, seed, scripts): `PrismaPg` — driver TCP nativo
  *   contra Postgres local (docker) o remoto. Soporta transacciones.
+ *   Se carga con dynamic import porque `pg` es un módulo nativo de Node
+ *   que no se puede bundleear para Workers (excepción: platform-specific).
  *
- * `PrismaPg` se carga con dynamic import porque `pg` es un módulo nativo
- * de Node que no se puede bundleear para Workers (OpenNext/Turbopack
- * no soporta serverExternalPackages para paquetes del store de pnpm).
- * Excepción a ts-no-dynamic-import: platform-specific module.
+ * `@prisma/client` va en serverExternalPackages (next.config.ts):
+ * OpenNext patchea el cliente generado durante el bundle de Workers.
  *
  * La detección de Workers combina dos señales:
  *   1. `navigator.userAgent === "Cloudflare-Workers"` (oficial de workerd)
@@ -30,36 +29,41 @@ function esWorkersRuntime(): boolean {
   return url !== undefined && !url.includes("localhost");
 }
 
-// Singleton async: los consumers usan `await getPrisma()`.
-let prismaPromise: Promise<PrismaClient> | null = null;
-
-export function getPrisma(): Promise<PrismaClient> {
-  if (prismaPromise !== null) return prismaPromise;
-
+function crearCliente(): Promise<PrismaClient> {
   const url = process.env.DATABASE_URL;
   if (url === undefined || url === "") {
     throw new Error("DATABASE_URL no está definido");
   }
 
   if (esWorkersRuntime()) {
-    prismaPromise = Promise.resolve(
+    return Promise.resolve(
       new PrismaClient({
         adapter: new PrismaNeonHTTP(url, { arrayMode: false, fullResults: false }),
       }),
     );
-  } else {
-    // Dynamic import: pg es nativo de Node, no existe en Workers.
-    prismaPromise = import("@prisma/adapter-pg").then(({ PrismaPg }) =>
-      new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) }),
-    );
   }
 
-  // Cache en globalThis para dev (evita abrir pool por hot-reload).
-  prismaPromise.then((client) => {
-    if (process.env.NODE_ENV !== "production") {
-      (globalThis as unknown as { prisma?: PrismaClient }).prisma = client;
-    }
-  });
+  // Dynamic import: pg es nativo de Node, no existe en Workers.
+  return import("@prisma/adapter-pg").then(
+    ({ PrismaPg }) => new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) }),
+  );
+}
 
-  return prismaPromise;
+// Cache por-request (React): dentro del mismo request devuelve la misma
+// instancia; entre requests, una nueva. En scripts Node (sin request scope
+// de React) el cache de React es transparente — cada llamada al script crea
+// su cliente.
+let cached: Promise<PrismaClient> | null = null;
+
+export function getPrisma(): Promise<PrismaClient> {
+  if (cached === null) {
+    cached = crearCliente();
+    // En dev (hot-reload) no retener el cliente entre restarts del módulo.
+    if (process.env.NODE_ENV !== "production") {
+      cached.catch(() => {
+        cached = null;
+      });
+    }
+  }
+  return cached;
 }
