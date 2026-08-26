@@ -7,18 +7,28 @@ import { PrismaClient } from "@prisma/client";
  * - **Node** (dev local, seed, scripts): `PrismaClient` directo con su engine
  *   nativo contra `DATABASE_URL` (Postgres local o remoto por TCP).
  * - **Cloudflare Workers** (producción): sin runtime de Node, el engine no
- *   existe — se instancia con el **adapter Neon HTTP** (`PrismaNeonHttp`),
+ *   existe — se instancia con el **adapter Neon HTTP** (`PrismaNeonHTTP`),
  *   que habla fetch contra la BD Neon. `DATABASE_URL` llega como secret de
  *   wrangler y apunta al endpoint HTTP de Neon.
  *
- * La detección es la oficial de workerd: `navigator.userAgent === "Cloudflare-Workers"`
- * (también es así en `wrangler dev`, que corre el mismo runtime).
+ * La detección de Workers combina dos señales:
+ *   1. `navigator.userAgent === "Cloudflare-Workers"` (oficial de workerd)
+ *   2. Ausencia de `process.env.DATABASE_URL` con formato localhost
+ * OpenNext puede transpilar `navigator` de forma que la primera falle,
+ * por eso la segunda es el fallback.
  */
-const esWorkers =
-  typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers";
+function esWorkersRuntime(): boolean {
+  if (typeof navigator !== "undefined" && navigator.userAgent === "Cloudflare-Workers") {
+    return true;
+  }
+  // Fallback: en Workers no hay .env local con localhost.
+  // Si DATABASE_URL apunta a Neon (no localhost), estamos en remoto/Workers.
+  const url = process.env.DATABASE_URL;
+  return url !== undefined && !url.includes("localhost");
+}
 
 function crearCliente(): PrismaClient {
-  if (!esWorkers) return new PrismaClient();
+  if (!esWorkersRuntime()) return new PrismaClient();
 
   const url = process.env.DATABASE_URL;
   if (url === undefined || url === "") {
