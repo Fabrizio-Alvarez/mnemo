@@ -10,7 +10,14 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
-  }
+  },
+  // Dominio custom: mnemo.falvarez.dev (falvarez.dev en CF Registrar).
+  // El Worker sirve todo el tráfico del subdominio. El registro DNS
+  // (CNAME o proxied) se crea desde el dashboard de CF o automáticamente
+  // al asignar el custom domain en Workers → mnemo → Settings → Domains.
+  "routes": [
+    { "pattern": "mnemo.falvarez.dev", "custom_domain": true }
+  ],
   // DATABASE_URL (endpoint de Neon) se setea como secret:
   //   npx wrangler secret put DATABASE_URL
 }
