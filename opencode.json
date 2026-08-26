@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "opencode-zen": {
+      "options": {
+        "baseURL": "http://127.0.0.1:8818"
+      }
+    }
+  }
+}
