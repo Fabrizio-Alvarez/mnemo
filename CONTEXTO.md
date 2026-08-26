@@ -146,20 +146,20 @@ pnpm seed         # re-sincroniza decks/*.md → BD (idempotente; baja tarjetas 
 pnpm db:studio    # Prisma Studio para inspeccionar
 ```
 
-## Deploy — Cloudflare Workers + Neon (decisión 2026-08-25, reemplaza Fly)
+## Deploy — ✅ LIVE en https://mnemo.falvarez.dev (2026-08-26)
 
-Stack elegido: **Workers free** (100k req/día) + **Neon free** (Postgres 0.5 GB) + **dominio en Cloudflare Registrar** (~US$10/año, única parte paga). Fly quedó descartado (trial vencido, requiere tarjeta); `deploy/Dockerfile` queda en el repo como alternativa archivada (requiere re-habilitar `output: "standalone"` en `next.config.ts`).
+Stack: **Workers free** (100k req/día) + **Neon free** (Postgres 0.5 GB) + **dominio `falvarez.dev`** en Cloudflare Registrar. Todas las rutas verificadas en producción (200 sin errores).
 
-Piezas ya implementadas y verificadas en CI:
-- `apps/web/wrangler.jsonc` (nodejs_compat + assets) + `open-next.config.ts` (`defineCloudflareConfig`).
-- `packages/db`: `previewFeatures = ["driverAdapters"]` + **cliente dual** — engine clásico en Node; en Workers, `PrismaNeonHttp` (adapter v7: connection string + `{ arrayMode: false, fullResults: false }`) hablando fetch contra Neon.
-- Workflows: `ci.yml` arma el bundle de Workers en cada push (verde) y `deploy.yml` deploya con `wrangler-action` (secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`).
+Piezas:
+- `apps/web/wrangler.jsonc` (nodejs_compat + assets + ruta custom `mnemo.falvarez.dev`) + `open-next.config.ts`.
+- **Configuración Prisma + OpenNext (canónica, ver docs opennext.js.org/cloudflare/howtos/db)**: `prisma-client-js` + `driverAdapters` SIN output directory (OpenNext patchea el cliente generado — con output custom no puede); `serverExternalPackages: ["@prisma/client", ".prisma/client"]` en next.config.ts (los incluye en el build workerd).
+- **Cliente dual** (`packages/db/src/client.ts`): `getPrisma()` async singleton. Workers → `PrismaNeonHTTP` (fetch contra Neon). Node → `PrismaPg` via dynamic import (`pg` es nativo, no bundleable — excepción platform-specific). Detección: `navigator.userAgent === "Cloudflare-Workers"` + fallback por URL no-localhost.
+- Workflows: `ci.yml` (tests + build + bundle) y `deploy.yml` (setea `DATABASE_URL` del Worker desde secret `NEON_DATABASE_URL` + deploya con wrangler-action). Activado por variable de repo `DEPLOY=true`.
 
-Pasos que faltan (interactivos, con cuenta propia):
-1. **Neon**: cuenta → connection string en `.env.neon` (gitignored) → `corepack pnpm db:remoto` (migraciones + seed en un comando; validado local: seed idempotente 0 nuevas / 0 eliminadas).
-2. **Secrets del repo**: `gh secret set CLOUDFLARE_API_TOKEN` (token plantilla "Edit Cloudflare Workers") y `gh secret set CLOUDFLARE_ACCOUNT_ID`; luego crear la **variable** de repo `DEPLOY=true` (`gh variable set DEPLOY --body true`) — `deploy.yml` está dormido hasta que esa variable exista, para no marcar ✗ en cada push. El próximo push deploya → https://mnemo.<cuenta>.workers.dev
-3. **Secret del Worker**: dashboard CF → Worker `mnemo` → Settings → Variables → secret `DATABASE_URL` = URL de Neon.
-4. **Dominio** (decisión 2026-08-25): un solo dominio para todo el portafolio personal — apex para el sitio portfolio (Cloudflare Pages) y **subdominio `mnemo.`** para este Worker. Cada proyecto futuro cuelga de su propio subdominio (gratis en CF: Workers y Pages). Comprar en Cloudflare Registrar → Workers → mnemo → Settings → Domains & Routes → Add custom domain (`mnemo.tudominio`).
+Operación:
+- **Re-deploy**: push a main (deploy.yml corre solo) o `gh workflow run deploy.yml`.
+- **BD remota**: `corepack pnpm db:remoto` (migraciones + seed; lee `.env.neon` directo con fs — Node v24 carga `.env` automáticamente y pisaría la URL).
+- **Secrets del repo**: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEON_DATABASE_URL` + variable `DEPLOY=true`.
 
 ### Por qué el build no es local
 OpenNext crea symlinks del store de pnpm al armar `.next/standalone` → `EPERM` en Windows sin admin (y sobre OneDrive, peor). El bundle se arma y deploya **solo desde CI (Linux)**. Local queda `next dev` normal.
@@ -174,7 +174,8 @@ OpenNext crea symlinks del store de pnpm al armar `.next/standalone` → `EPERM`
 - **SHA-256 propio en el dominio:** síncrono y sin `node:crypto` ni WebCrypto, para que `cardId` corra idéntico en Node, browser y un futuro Capacitor. Verificado contra vectores NIST en tests.
 - **SM-2 con 4 botones:** grades 0–3 mapean a calidad q 2–5 (umbral q≥3). Fallo: reps=0, intervalo=1d, lapses++, ease intacto (SM-2 clásico). El ease baja solo con aprobaciones débiles (Difícil), piso 1.3.
 - **OpenNext (Cloudflare) no build-ea en Windows:** arma `.next/standalone` con symlinks del store de pnpm → `EPERM` sin admin. Solución: bundle y deploy viven en CI Linux (`ci.yml` valida, `deploy.yml` deploya). `next build` SÍ funciona local (webpack).
-- **@prisma/adapter-neon v7 cambió la API:** `PrismaNeonHttp` (camelCase) recibe `(connectionString, { arrayMode, fullResults })` — NO el cliente `neon()` de versiones anteriores.
+- **Prisma + OpenNext Workers (EL gotcha del deploy):** la config canónica es `prisma-client-js` + `driverAdapters` **SIN output directory** (OpenNext patchea el cliente generado; con output custom no puede → el Worker tira "Wasm code generation disallowed") + `serverExternalPackages: ["@prisma/client", ".prisma/client"]`. `pg`/`@prisma/adapter-pg` NO pueden ir static-import en código compartido (pg es nativo, "Package pg can't be external" en Turbopack) — dynamic import en la rama Node. `@prisma/adapter-neon` v6 exporta `PrismaNeonHTTP` (mayúsculas); v7 `PrismaNeonHttp` — alinear versión con `@prisma/client` (v6↔v6).
+- **Node v24 carga `.env` automáticamente** y PISA las vars de `--env-file`: para scripts que necesitan otra URL (`.env.neon`), leer el archivo con `fs` y pasar `env` explícito a los hijos (ver `scripts/remoto.ts`). Neon además suspende conexiones → el advisory lock de `prisma migrate deploy` cuelga si las migraciones ya están: verificar con `migrate status` antes.
 
 ## Preguntas abiertas (decidir al arrancar)
 
@@ -189,4 +190,4 @@ OpenNext crea symlinks del store de pnpm al armar `.next/standalone` → `EPERM`
 - ✅ **v1 completa y verificada end-to-end** (2026-08-24): re-encolado de "Otra vez" (máx 1 por tarjeta, resumen = última calificación por tarjeta) · **deshacer** (Z) con estado previo en `review_logs` (migración con backfill; undo verificado en BD: fila borrada + card restaurado exacto) · "repasar igual" (`?all=1` con banner) · `/stats` (racha, mejor racha, 30 días, por mazo — números auditados contra la BD) · `/quiz/[slug]` (quiz completo en browser, **cero escrituras a la BD**) · dominio 41/41 tests.
 - 🔼 **Repo público + CI**: https://github.com/Fabrizio-Alvarez/mnemo — GitHub Actions (vitest + tsc domain/web + build) en cada push.
 - 🚀 **Migración a Cloudflare Workers + Neon completa en código y CI** (2026-08-25): cliente Prisma dual (Node/Workers), wrangler.jsonc + open-next.config.ts, CI arma el bundle de Workers en Linux (verde). Faltan solo los pasos interactivos de cuenta (Neon, secrets del repo, secret `DATABASE_URL` del Worker, dominio) — ver sección Deploy.
-- ✅ **v2 completa** (2026-08-26): importador NotebookLM en `/importar` — `importarNotebookLM` + `generarDeckMD` en el dominio (14 tests, inversa de `parseDeck` verificada), página cliente con textarea + metadatos + previsualización live + descarga `.md`. Dominio 55/55 tests.
+- ✅ **Deploy LIVE** (2026-08-26): **https://mnemo.falvarez.dev** — Workers + Neon + dominio propio. Todas las rutas verificadas (dashboard, mazos, estudio, stats, importador). Bug principal resuelto: configuración Prisma+OpenNext canónica (ver §Deploy).
