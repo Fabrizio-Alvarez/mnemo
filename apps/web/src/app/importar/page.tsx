@@ -56,7 +56,7 @@ export default function ImportadorPage() {
   return (
     <div className="space-y-8">
       <nav className="text-sm text-muted">
-        <Link href="/" className="hover:text-foreground">
+        <Link href="/" className="inline-flex items-center py-2 hover:text-foreground">
           ← Mazos
         </Link>
       </nav>
@@ -73,7 +73,6 @@ export default function ImportadorPage() {
         <label className="block">
           <span className="text-sm font-medium text-muted">1. Pegá el texto de NotebookLM</span>
           <textarea
-            value={texto}
             onChange={(e) => setTexto(e.target.value)}
             placeholder={EJEMPLO}
             rows={12}
@@ -83,7 +82,7 @@ export default function ImportadorPage() {
         <button
           type="button"
           onClick={() => setTexto(EJEMPLO)}
-          className="text-xs text-muted underline hover:text-foreground"
+          className="py-2 text-xs text-muted underline hover:text-foreground"
         >
           Cargar ejemplo
         </button>

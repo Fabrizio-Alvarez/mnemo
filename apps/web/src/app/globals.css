@@ -30,3 +30,8 @@ body {
   color: var(--foreground);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+
+/* iOS Safari no agranda el texto al rotar en landscape. */
+html {
+  -webkit-text-size-adjust: 100%;
+}

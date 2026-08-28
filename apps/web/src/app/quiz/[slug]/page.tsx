@@ -23,7 +23,7 @@ export default async function PaginaQuiz({ params }: { params: Promise<{ slug: s
   return (
     <div className="space-y-6">
       <nav className="text-sm text-muted">
-        <Link href={`/decks/${slug}`} className="hover:text-foreground">
+        <Link href={`/decks/${slug}`} className="inline-flex items-center py-2 hover:text-foreground">
           ← {deck?.title ?? slug}
         </Link>
       </nav>

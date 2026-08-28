@@ -12,7 +12,7 @@ export default async function PaginaMazo({ params }: { params: Promise<{ slug: s
   return (
     <div className="space-y-8">
       <nav className="text-sm text-muted">
-        <Link href="/" className="hover:text-foreground">
+        <Link href="/" className="inline-flex items-center py-2 hover:text-foreground">
           ← Mazos
         </Link>
       </nav>
@@ -71,10 +71,10 @@ export default async function PaginaMazo({ params }: { params: Promise<{ slug: s
         <div className="divide-y divide-foreground/10 rounded-xl border border-foreground/10 bg-card">
           {mazo.vencidasAhora.map((card) => (
             <details key={card.id} className="group px-5 py-3">
-              <summary className="cursor-pointer list-none font-medium marker:hidden group-open:text-accent">
+              <summary className="-my-2 cursor-pointer list-none py-2 font-medium marker:hidden group-open:text-accent">
                 {card.question}
               </summary>
-              <p className="mt-2 whitespace-pre-line text-sm text-muted">{card.answer}</p>
+              <p className="mt-2 whitespace-pre-line pb-1 text-sm text-muted">{card.answer}</p>
             </details>
           ))}
           {mazo.total - mazo.vencidasAhora.length > 0 && (

@@ -166,8 +166,11 @@ export default function SesionEstudio({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between text-sm text-muted">
+    // Móvil: la sesión llena el viewport — la tarjeta crece (flex-1) y los
+    // botones quedan abajo en la zona del pulgar, con padding de safe-area
+    // para el gesture bar de iOS (requiere viewport-fit=cover en el layout).
+    <div className="flex min-h-[calc(100dvh-11.5rem)] flex-col gap-5">
+      <div className="flex items-center justify-between gap-3 text-sm text-muted">
         <span>
           Tarjeta {indice + 1} de {cola.length}
           {cola.length > sesion.length && (
@@ -180,17 +183,17 @@ export default function SesionEstudio({
             onClick={() => void deshacer()}
             disabled={!puedeDeshacer}
             title="Deshacer la última calificación (Z)"
-            className="rounded-lg border border-foreground/15 px-2.5 py-1 hover:border-accent/60 hover:text-accent disabled:opacity-40 disabled:hover:border-foreground/15 disabled:hover:text-inherit"
+            className="rounded-lg border border-foreground/15 px-3 py-2 hover:border-accent/60 hover:text-accent disabled:opacity-40 disabled:hover:border-foreground/15 disabled:hover:text-inherit"
           >
-            ⟲ Deshacer <kbd className="text-xs opacity-60">z</kbd>
+            ⟲ Deshacer <kbd className="hidden text-xs opacity-60 [@media(hover:hover)]:inline">z</kbd>
           </button>
         </div>
       </div>
-      <div className="h-1 overflow-hidden rounded bg-foreground/10">
+      <div className="h-1 shrink-0 overflow-hidden rounded bg-foreground/10">
         <div className="h-full bg-accent transition-all" style={{ width: `${(indice / cola.length) * 100}%` }} />
       </div>
 
-      <article className="flex min-h-64 flex-col rounded-2xl border border-foreground/10 bg-card p-8">
+      <article className="flex min-h-64 flex-1 flex-col rounded-2xl border border-foreground/10 bg-card p-6 sm:p-8">
         <h2 className="text-xl font-medium leading-relaxed">{card.question}</h2>
         {revelada ? (
           <p className="mt-6 whitespace-pre-line border-t border-foreground/10 pt-6 leading-relaxed text-muted">
@@ -201,24 +204,25 @@ export default function SesionEstudio({
           <div className="flex flex-1 items-end">
             <button
               onClick={() => setRevelada(true)}
-              className="w-full rounded-lg border border-foreground/15 py-3 text-sm font-medium hover:border-accent/60 hover:text-accent"
+              className="w-full rounded-lg border border-foreground/15 py-4 text-sm font-medium hover:border-accent/60 hover:text-accent"
             >
-              Mostrar respuesta <kbd className="text-xs text-muted">espacio</kbd>
+              Mostrar respuesta <kbd className="hidden text-xs text-muted [@media(hover:hover)]:inline">espacio</kbd>
             </button>
           </div>
         )}
       </article>
 
       {revelada && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid shrink-0 grid-cols-2 gap-2 pb-[env(safe-area-inset-bottom)] sm:grid-cols-4">
           {([0, 1, 2, 3] as Grade[]).map((grade) => (
             <button
               key={grade}
               disabled={enviando}
               onClick={() => void responder(grade)}
-              className={`rounded-lg border bg-card px-3 py-2.5 text-sm font-medium transition disabled:opacity-50 ${ESTILO_BOTON[grade]}`}
+              className={`rounded-lg border bg-card px-3 py-3.5 text-sm font-medium transition disabled:opacity-50 ${ESTILO_BOTON[grade]}`}
             >
-              {GRADE_LABELS[grade]} <kbd className="text-xs opacity-60">{grade + 1}</kbd>
+              {GRADE_LABELS[grade]}{" "}
+              <kbd className="hidden text-xs opacity-60 [@media(hover:hover)]:inline">{grade + 1}</kbd>
             </button>
           ))}
         </div>

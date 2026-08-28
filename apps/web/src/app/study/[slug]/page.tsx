@@ -52,7 +52,7 @@ export default async function PaginaEstudio({
   return (
     <div className="space-y-6">
       <nav className="text-sm text-muted">
-        <Link href={`/decks/${mazo.slug}`} className="hover:text-foreground">
+        <Link href={`/decks/${mazo.slug}`} className="inline-flex items-center py-2 hover:text-foreground">
           ← {mazo.title}
         </Link>
       </nav>

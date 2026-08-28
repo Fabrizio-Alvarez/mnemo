@@ -111,7 +111,7 @@ export default function QuizSesion({
         <div className="flex justify-end">
           <button
             onClick={siguiente}
-            className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="w-full rounded-lg bg-accent px-5 py-3 text-sm font-medium text-white hover:opacity-90 sm:w-auto"
           >
             {indice + 1 === orden.length ? "Ver resultado" : "Siguiente"} →
           </button>
