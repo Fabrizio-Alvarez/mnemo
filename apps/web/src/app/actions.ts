@@ -12,6 +12,12 @@ import { schedule, type Grade } from "@mnemo/domain";
  * revalidación re-renderiza /study/[slug] con la lista de vencidas ya encogida
  * (salta tarjetas y borra el resumen final de la sesión). Como todas las rutas
  * son force-dynamic, cada navegación trae datos frescos de todos modos.
+ *
+ * Sin $transaction: el adapter PrismaNeonHTTP (Workers) no soporta
+ * transacciones ("Transactions are not supported in HTTP mode"). El orden
+ * log→card se auto-repara en fallo parcial: si el update del card falla,
+ * el log ya existe y un deshacer lo limpia; si el create del log falla,
+ * no cambió nada y reintentar es limpio.
  */
 export async function calificar(cardId: string, deckSlug: string, grade: number): Promise<{ intervalDays: number } | null> {
   if (!Number.isInteger(grade) || grade < 0 || grade > 3) throw new Error(`Grade inválido: ${grade}`);
@@ -26,31 +32,30 @@ export async function calificar(cardId: string, deckSlug: string, grade: number)
     new Date(),
   );
 
-  await prisma.$transaction([
-    prisma.card.update({
-      where: { id: cardId },
-      data: {
-        ease: next.ease,
-        intervalDays: next.intervalDays,
-        reps: next.reps,
-        lapses: next.lapses,
-        dueAt: next.dueAt,
-      },
-    }),
-    prisma.reviewLog.create({
-      data: {
-        cardId,
-        grade,
-        intervalDays: next.intervalDays,
-        ease: next.ease,
-        prevIntervalDays: card.intervalDays,
-        prevEase: card.ease,
-        prevReps: card.reps,
-        prevLapses: card.lapses,
-        prevDueAt: card.dueAt,
-      },
-    }),
-  ]);
+  await prisma.reviewLog.create({
+    data: {
+      cardId,
+      grade,
+      intervalDays: next.intervalDays,
+      ease: next.ease,
+      prevIntervalDays: card.intervalDays,
+      prevEase: card.ease,
+      prevReps: card.reps,
+      prevLapses: card.lapses,
+      prevDueAt: card.dueAt,
+    },
+  });
+
+  await prisma.card.update({
+    where: { id: cardId },
+    data: {
+      ease: next.ease,
+      intervalDays: next.intervalDays,
+      reps: next.reps,
+      lapses: next.lapses,
+      dueAt: next.dueAt,
+    },
+  });
 
   return { intervalDays: next.intervalDays };
 }
@@ -59,6 +64,10 @@ export async function calificar(cardId: string, deckSlug: string, grade: number)
  * Deshace la ÚLTIMA autoevaluación de una tarjeta: restaura el estado previo
  * guardado en su review_log más reciente y borra esa fila. La sesión controla
  * que solo se deshaga la última acción de la cola (botón/ui), no cualquiera.
+ *
+ * Sin $transaction (NeonHTTP no las soporta). Orden card→delete: si el delete
+ * del log falla, el card ya quedó restaurado y re-des-hacer aplica la misma
+ * restauración (idempotente) antes de borrar el log — se auto-repara.
  */
 export async function deshacerUltima(cardId: string): Promise<boolean> {
   const prisma = await getPrisma();
@@ -68,18 +77,17 @@ export async function deshacerUltima(cardId: string): Promise<boolean> {
   });
   if (ultima === null) return false;
 
-  await prisma.$transaction([
-    prisma.card.update({
-      where: { id: cardId },
-      data: {
-        ease: ultima.prevEase,
-        intervalDays: ultima.prevIntervalDays,
-        reps: ultima.prevReps,
-        lapses: ultima.prevLapses,
-        dueAt: ultima.prevDueAt,
-      },
-    }),
-    prisma.reviewLog.delete({ where: { id: ultima.id } }),
-  ]);
+  await prisma.card.update({
+    where: { id: cardId },
+    data: {
+      ease: ultima.prevEase,
+      intervalDays: ultima.prevIntervalDays,
+      reps: ultima.prevReps,
+      lapses: ultima.prevLapses,
+      dueAt: ultima.prevDueAt,
+    },
+  });
+
+  await prisma.reviewLog.delete({ where: { id: ultima.id } });
   return true;
 }

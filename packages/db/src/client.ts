@@ -8,6 +8,9 @@ import { PrismaClient } from "@prisma/client";
  *
  * - **Cloudflare Workers** (producción): `PrismaNeonHTTP` — habla fetch
  *   contra la BD Neon. `DATABASE_URL` llega como secret de wrangler.
+ *   ⚠️ NO soporta transacciones ("Transactions are not supported in HTTP
+ *   mode") — las server actions usan operaciones secuenciales con orden
+ *   auto-reparable (ver apps/web/src/app/actions.ts).
  * - **Node** (dev local, seed, scripts): `PrismaPg` — driver TCP nativo
  *   contra Postgres local (docker) o remoto. Soporta transacciones.
  *   Se carga con dynamic import porque `pg` es un módulo nativo de Node
