@@ -50,8 +50,8 @@ Extensión futura sin romper el formato: tarjetas **cloze** con `==texto a compl
 
 ## Flujo de trabajo pensado
 
-1. **Curar** el tema en [NotebookLM](https://notebook.google) con las fuentes (PDFs, apuntes, docs).
-2. **Generar** preguntas/respuestas ahí y exportar/pegar → archivo `.md` por tema en `decks/`.
+1. **Curar** el tema en [NotebookLM](https://notebook.google) con las fuentes (PDFs, apuntes, docs), o directamente un tema que el LLM domine.
+2. **Generar** el mazo con el prompt de `prompts/generar-mazo.md` (formato exacto del `.md`, con `### porque`) → guardar en `decks/`.
 3. **Estudiar**: la app carga los mazos, sesiones de repaso con **repetición espaciada** (algoritmo SM-2, el de Anki: la tarjeta vuelve cuando estás por olvidarla).
 
 Primeros mazos candidatos: el material de `Ejercicio-Arquitectura/ESTUDIO.md` y `Guia-Estudio-Laravel-Vue.pdf` ya están para convertir.
