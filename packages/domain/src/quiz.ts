@@ -3,13 +3,25 @@
  * Los distractores son respuestas de tarjetas hermanas del mismo mazo —
  * sin metadata extra, sin duplicar contenido: el .md sigue siendo la única fuente.
  *
+ * Cada opción sabe a qué pregunta pertenece realmente (`origen`): al errar,
+ * la UI muestra que la respuesta elegida responde a OTRA pregunta — el quiz
+ * enseña el mapeo pregunta↔respuesta, no solo correcto/incorrecto. La
+ * explicación autoral (`### porque` en el .md) llega vía `tarjeta.explanation`.
+ *
  * `rng` es inyectable para tests deterministas (default Math.random).
  */
+
+export interface OpcionQuiz {
+  /** Texto de la opción: una respuesta del mazo. */
+  texto: string;
+  /** Pregunta de la tarjeta de donde salió esta respuesta. `undefined` = la correcta. */
+  origen?: string;
+}
 
 export interface ItemQuiz<T> {
   tarjeta: T;
   /** Respuestas posibles, mezcladas. */
-  opciones: string[];
+  opciones: OpcionQuiz[];
   /** Índice de la opción correcta dentro de `opciones`. */
   correcta: number;
 }
@@ -20,19 +32,26 @@ export function armarQuiz<T extends { question: string; answer: string }>(
 ): ItemQuiz<T>[] {
   return cards.map((card) => {
     const distractores = mezclar(
-      deduplicar(
-        cards.filter((otra) => otra.question !== card.question).map((otra) => otra.answer),
-      ).filter((respuesta) => respuesta !== card.answer),
+      deduplicarPorTexto(
+        cards
+          .filter((otra) => otra.question !== card.question)
+          .map((otra) => ({ texto: otra.answer, origen: otra.question })),
+      ).filter((opcion) => opcion.texto !== card.answer),
       rng,
     ).slice(0, 3);
 
-    const opciones = mezclar([card.answer, ...distractores], rng);
-    return { tarjeta: card, opciones, correcta: opciones.indexOf(card.answer) };
+    const opciones = mezclar([{ texto: card.answer }, ...distractores], rng);
+    return { tarjeta: card, opciones, correcta: opciones.findIndex((o) => o.texto === card.answer) };
   });
 }
 
-function deduplicar(respuestas: string[]): string[] {
-  return [...new Set(respuestas)];
+function deduplicarPorTexto<T extends { texto: string }>(opciones: T[]): T[] {
+  const vistos = new Set<string>();
+  return opciones.filter((opcion) => {
+    if (vistos.has(opcion.texto)) return false;
+    vistos.add(opcion.texto);
+    return true;
+  });
 }
 
 /** Fisher-Yates con rng inyectable. */

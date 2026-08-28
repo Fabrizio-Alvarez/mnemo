@@ -52,13 +52,20 @@ function runInherit(cmd: string): void {
 console.log("→ BD remota: migraciones + seed (Neon)");
 
 // 1. Verificar estado de migraciones (no usa advisory lock).
-const status = run("corepack pnpm --filter @mnemo/db exec prisma migrate status");
-const yaAplicadas = status.includes("up to date") || status.includes("Database schema is up to date");
+// `migrate status` sale con código 1 cuando hay migraciones pendientes —
+// su output (stdout+stderr) es la señal, no su exit code.
+let status = "";
+try {
+  status = run("corepack pnpm --filter @mnemo/db exec prisma migrate status");
+} catch (error) {
+  const e = error as { stdout?: string; stderr?: string };
+  status = `${e.stdout ?? ""}${e.stderr ?? ""}`;
+}
 
-if (!yaAplicadas) {
-  runInherit("corepack pnpm --filter @mnemo/db exec prisma migrate deploy");
-} else {
+if (status.includes("up to date") || status.includes("Database schema is up to date")) {
   console.log("✓ Migraciones ya aplicadas — saltando deploy");
+} else {
+  runInherit("corepack pnpm --filter @mnemo/db exec prisma migrate deploy");
 }
 
 // 2. Seed idempotente.

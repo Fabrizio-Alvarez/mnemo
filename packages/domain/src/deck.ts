@@ -20,6 +20,12 @@ export interface CardSource {
   question: string;
   /** Respuesta: el cuerpo bajo el encabezado, verbatim (trimmed). */
   answer: string;
+  /**
+   * Explicación didáctica opcional: el cuerpo tras un sub-encabezado
+   * `### porque` dentro de la tarjeta. El quiz la muestra al responder —
+   * el "por qué" conceptual, no solo la respuesta correcta.
+   */
+  explanation?: string;
 }
 
 /** Un mazo parseado desde Markdown. */

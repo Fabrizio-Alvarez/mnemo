@@ -46,8 +46,8 @@ async function main(): Promise<void> {
         prisma.card.upsert({
           where: { id: ids[i]! },
           // El estado SRS NO se toca en el update: el .md manda solo en el contenido.
-          create: { id: ids[i]!, deckSlug: slug, question: card.question, answer: card.answer },
-          update: { question: card.question, answer: card.answer },
+          create: { id: ids[i]!, deckSlug: slug, question: card.question, answer: card.answer, explanation: card.explanation },
+          update: { question: card.question, answer: card.answer, explanation: card.explanation },
         }),
       ),
     );

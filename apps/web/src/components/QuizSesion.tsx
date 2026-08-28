@@ -4,10 +4,19 @@ import { useState } from "react";
 import Link from "next/link";
 import { mezclar } from "@mnemo/domain";
 
+interface Opcion {
+  /** Texto de la opción: una respuesta del mazo. */
+  texto: string;
+  /** Pregunta hermana de donde salió la respuesta (undefined = la correcta). */
+  origen?: string;
+}
+
 interface PreguntaQuiz {
   question: string;
-  opciones: string[];
+  opciones: Opcion[];
   correcta: number;
+  /** Explicación autoral (`### porque` en el .md) — el por qué conceptual. */
+  explicacion: string | null;
 }
 
 export default function QuizSesion({
@@ -47,39 +56,40 @@ export default function QuizSesion({
           {puntaje >= 80 ? "🏆" : puntaje >= 50 ? "💪" : "📚"}
         </p>
         <h1 className="text-2xl font-semibold">
-          {aciertos} de {orden.length} correctas
+          {aciertos} de {orden.length} correctas ({puntaje}%)
         </h1>
-        <p className="text-muted">{puntaje}% en «{deckTitle}» — modo práctica, no movió tu plan SM-2.</p>
-        <div className="flex justify-center gap-3 text-sm">
-          {/* Navegación a la misma ruta force-dynamic → nuevo quiz con otro orden. */}
-          <Link href={`/quiz/${deckSlug}`} className="rounded-lg bg-accent px-4 py-2 font-medium text-white hover:opacity-90">
-            Jugar otra vez
-          </Link>
+        <p className="text-muted">Modo práctica — tu plan de repaso queda intacto.</p>
+        <div className="flex flex-col justify-center gap-3 text-sm sm:flex-row">
           <Link href={`/decks/${deckSlug}`} className="rounded-lg border border-foreground/15 px-4 py-2 hover:border-accent/60">
             Volver al mazo
+          </Link>
+          <Link href="/" className="rounded-lg border border-foreground/15 px-4 py-2 hover:border-accent/60">
+            Dashboard
           </Link>
         </div>
       </div>
     );
   }
 
+  const acierto = elegida === pregunta.correcta;
+
   return (
-    <div className="space-y-5">
+    <div className="flex min-h-[calc(100dvh-15rem)] flex-col gap-5">
       <div className="flex items-center justify-between text-sm text-muted">
         <span>
           Pregunta {indice + 1} de {orden.length}
         </span>
         <span>{aciertos} correctas</span>
       </div>
-      <div className="h-1 overflow-hidden rounded bg-foreground/10">
+      <div className="h-1 shrink-0 overflow-hidden rounded bg-foreground/10">
         <div className="h-full bg-accent transition-all" style={{ width: `${(indice / orden.length) * 100}%` }} />
       </div>
 
-      <article className="rounded-2xl border border-foreground/10 bg-card p-8">
+      <article className="rounded-2xl border border-foreground/10 bg-card p-6 sm:p-8">
         <h2 className="text-xl font-medium leading-relaxed">{pregunta.question}</h2>
       </article>
 
-      <div className="grid gap-2">
+      <div className="grid flex-1 content-start gap-2">
         {pregunta.opciones.map((opcion, i) => {
           const esCorrecta = i === pregunta.correcta;
           const esElegida = i === elegida;
@@ -99,22 +109,39 @@ export default function QuizSesion({
                       : "border-foreground/10 opacity-50"
               }`}
             >
-              {opcion}
+              {opcion.texto}
               {revelada && esCorrecta && <span className="ml-2 text-xs font-semibold">✓ correcta</span>}
-              {revelada && esElegida && !esCorrecta && <span className="ml-2 text-xs font-semibold">✗ tu elección</span>}
+              {revelada && esElegida && !esCorrecta && (
+                <span className="mt-1 block text-xs opacity-80">
+                  ✗ responde a otra tarjeta: «{opcion.origen ?? "?"}»
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
       {elegida !== null && (
-        <div className="flex justify-end">
-          <button
-            onClick={siguiente}
-            className="w-full rounded-lg bg-accent px-5 py-3 text-sm font-medium text-white hover:opacity-90 sm:w-auto"
-          >
-            {indice + 1 === orden.length ? "Ver resultado" : "Siguiente"} →
-          </button>
+        <div className="space-y-3 pb-[env(safe-area-inset-bottom)]">
+          {pregunta.explicacion && (
+            <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 text-sm leading-relaxed">
+              <span className="font-semibold text-accent">💡 Por qué:</span>{" "}
+              <span className="whitespace-pre-line">{pregunta.explicacion}</span>
+            </div>
+          )}
+          {!acierto && !pregunta.explicacion && (
+            <p className="text-sm text-muted">
+              La correcta es la opción marcada en verde — las demás responden a otras preguntas del mazo.
+            </p>
+          )}
+          <div className="flex justify-end">
+            <button
+              onClick={siguiente}
+              className="w-full rounded-lg bg-accent px-5 py-3 text-sm font-medium text-white hover:opacity-90 sm:w-auto"
+            >
+              {indice + 1 === orden.length ? "Ver resultado" : "Siguiente"} →
+            </button>
+          </div>
         </div>
       )}
     </div>

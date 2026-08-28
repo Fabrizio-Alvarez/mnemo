@@ -71,19 +71,38 @@ function fallbackTitle(body: string): string {
 }
 
 function extractCards(body: string): CardSource[] {
-  const sections: { question: string; answerLines: string[] }[] = [];
+  const sections: { question: string; answerLines: string[]; explanationLines: string[]; enExplicacion: boolean }[] = [];
 
   for (const line of body.split("\n")) {
     const match = /^##\s+(.+)$/.exec(line);
     if (match) {
-      sections.push({ question: match[1]!.trim(), answerLines: [] });
-    } else if (sections.length > 0) {
-      sections[sections.length - 1]!.answerLines.push(line);
+      sections.push({ question: match[1]!.trim(), answerLines: [], explanationLines: [], enExplicacion: false });
+      continue;
     }
+    const section = sections[sections.length - 1];
+    if (section === undefined) continue; // prosa antes de la primera tarjeta
+
+    // `### porque` (también "por qué" / "¿por qué?") abre la explicación:
+    // lo que sigue deja de ser respuesta y pasa a ser el por qué conceptual.
+    const sub = /^###\s+(.+)$/.exec(line);
+    if (sub !== null && esEncabezadoPorque(sub[1]!)) {
+      section.enExplicacion = true;
+      continue;
+    }
+    (section.enExplicacion ? section.explanationLines : section.answerLines).push(line);
   }
 
-  return sections.map(({ question, answerLines }) => ({
-    question,
-    answer: answerLines.join("\n").trim(),
-  }));
+  return sections.map(({ question, answerLines, explanationLines }) => {
+    const explanation = explanationLines.join("\n").trim();
+    return {
+      question,
+      answer: answerLines.join("\n").trim(),
+      ...(explanation !== "" ? { explanation } : {}),
+    };
+  });
+}
+
+/** `porque` / `por qué` / `¿por qué?` — mismo marcador, tolerante a tildes y signos. */
+function esEncabezadoPorque(titulo: string): boolean {
+  return titulo.normalize("NFD").replace(/[\u0300-\u036f¿?.,:;!¡\s-]/g, "").toLowerCase() === "porque";
 }

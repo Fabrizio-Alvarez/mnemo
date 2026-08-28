@@ -10,11 +10,17 @@ El contenedor de dependencias de Laravel. Sabe cómo construir objetos y resolve
 ## ¿bind vs singleton?
 `bind` crea una nueva instancia cada vez. `singleton` reutiliza la misma. Usar singleton para servicios sin estado (Clock, PaymentGateway).
 
+### porque
+Ambos registran CÓMO construir una dependencia; la diferencia es el ciclo de vida. `bind` = nueva instancia por resolución (correcto si el objeto guarda estado por request). `singleton` = una para toda la app (correcto para servicios sin estado: reutilizar es gratis y seguro). Error clásico: singleton sobre algo con estado → todos los users comparten ese estado.
+
 ## ¿Qué es el middleware?
 Capas que interceptan el request antes del controller. Sirve para auth, CORS, CSRF, logging. Desacopla concerns transversales.
 
 ## ¿Middleware vs Policy?
 Middleware protege RUTAS (requiere auth). Policy protege RECURSOS (puede este user editar ESTE modelo).
+
+### porque
+Middleware corre ANTES del controller y solo ve el request: puede preguntar "¿estás logueado?" pero no conoce el modelo. Policy corre DENTRO del controller con el modelo cargado: puede comparar `$post->user_id` con el user actual. Regla: "¿quién entra?" → middleware; "¿puede ESTE user tocar ESTE recurso?" → policy.
 
 ## ¿Cómo funciona Auth::attempt?
 Busca usuario por email, verifica password con bcrypt, guarda el ID en sesión. Retorna true/false.
@@ -27,6 +33,9 @@ Hashea el password con bcrypt al asignarlo. Garantiza que nunca se guarde en tex
 
 ## ¿Facades vs DI?
 Facades: concisos pero ocultan dependencias. DI: explícito, mejor para testing. Ambos válidos en Laravel.
+
+### porque
+Un Facade es un proxy estático al servicio del container: `Cache::get()` resuelve la misma instancia que inyectarías. La diferencia es VISIBILIDAD: con DI la dependencia firma el constructor (ves y mockeas lo que llega); con Facade la dependencia está escondida en la línea de uso. Por eso DI facilita tests — el mock entra por el constructor.
 
 ## ¿Events vs llamar directamente al listener?
 Desacoplamiento. El emisor no sabe quién escucha. Permite agregar listeners sin tocar el emisor.

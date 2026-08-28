@@ -32,6 +32,7 @@ model Card {
   deckSlug     String
   question     String
   answer       String
+  explanation  String?
   ease         Float     @default(2.5)
   intervalDays Int       @default(0)
   dueAt        DateTime  @default(now())

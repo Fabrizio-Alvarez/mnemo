@@ -34,6 +34,7 @@ export default async function PaginaQuiz({ params }: { params: Promise<{ slug: s
         question: item.tarjeta.question,
         opciones: item.opciones,
         correcta: item.correcta,
+        explicacion: item.tarjeta.explanation ?? null,
       }))} />
     </div>
   );

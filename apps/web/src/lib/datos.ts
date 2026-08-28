@@ -70,12 +70,14 @@ export async function mazoPorSlug(slug: string): Promise<DetalleMazo | null> {
 }
 
 /** Todas las tarjetas del mazo (para "repasar igual" y modo quiz). */
-export async function tarjetasDeMazo(slug: string): Promise<{ id: string; question: string; answer: string }[]> {
+export async function tarjetasDeMazo(
+  slug: string,
+): Promise<{ id: string; question: string; answer: string; explanation: string | null }[]> {
   const prisma = await getPrisma();
   return prisma.card.findMany({
     where: { deckSlug: slug },
     orderBy: { dueAt: "asc" },
-    select: { id: true, question: true, answer: true },
+    select: { id: true, question: true, answer: true, explanation: true },
   });
 }
 
