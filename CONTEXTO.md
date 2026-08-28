@@ -36,12 +36,17 @@ fuente: NotebookLM (Guía Laravel-Vue)
 Consultar 1 vez la lista + N veces por cada relación.
 Se resuelve con eager loading: `with('relacion')`.
 
+### porque
+El OR-M hidrata cada objeto por separado: N filas → N queries. Eager loading une la relación en UNA query extra — el costo pasa de O(N) a O(1) round-trips.
+
 ## ¿Diferencia entre hasMany y belongsToMany?
 hasMany: FK en la tabla del otro modelo.
 belongsToMany: tabla pivote muchos-a-muchos.
 ```
 
-Extensión futura sin romper el formato: tarjetas **cloze** con `==texto a completar==`, y **quiz** derivado automáticamente del mismo contenido (una tarjeta Q/R se vuelve pregunta de opción múltiple usando respuestas de tarjetas hermanas como distractores).
+El sub-encabezado **`### porque`** (opcional, tolerante: `por qué`, `¿por qué?`) separa la respuesta de una **explicación didáctica** — el por qué conceptual, no solo el qué. El quiz la muestra al responder (`💡 Por qué`), y al errar indica a qué tarjeta pertenece realmente la opción elegida.
+
+Extensión futura sin romper el formato: tarjetas **cloze** con `==texto a completar==` (el **quiz** derivado ya está: una tarjeta Q/R se vuelve opción múltiple usando respuestas de tarjetas hermanas como distractores, cada una con su pregunta de origen).
 
 ## Flujo de trabajo pensado
 
@@ -189,6 +194,7 @@ OpenNext crea symlinks del store de pnpm al armar `.next/standalone` → `EPERM`
 
 - ✅ **v0 completa y verificada end-to-end** (2026-08-19): dominio (parser + hash + SM-2, 28 tests Vitest sin DB) · Prisma + migración init · seed idempotente (verificado doble corrida: 0 nuevas, 0 eliminadas) · app Next (dashboard / mazo / estudio) · sesión completa probada en browser (15/15 tarjetas sin saltos, resumen con conteos exactos) · persistencia verificada en Postgres (36 review_logs, ease/interval/reps/lapses correctos por grade).
 - ✅ **v1 completa y verificada end-to-end** (2026-08-24): re-encolado de "Otra vez" (máx 1 por tarjeta, resumen = última calificación por tarjeta) · **deshacer** (Z) con estado previo en `review_logs` (migración con backfill; undo verificado en BD: fila borrada + card restaurado exacto) · "repasar igual" (`?all=1` con banner) · `/stats` (racha, mejor racha, 30 días, por mazo — números auditados contra la BD) · `/quiz/[slug]` (quiz completo en browser, **cero escrituras a la BD**) · dominio 41/41 tests.
+- ✅ **Quiz didáctico** (2026-08-28): formato extendido con `### porque` (explicación conceptual opcional por tarjeta) · distractores con pregunta de origen — al errar: "responde a otra tarjeta: «X»" · caja `💡 Por qué` tras responder · columna `cards.explanation` (migración aplicada) · dominio 61/61.
 - 🔼 **Repo público + CI**: https://github.com/Fabrizio-Alvarez/mnemo — GitHub Actions (vitest + tsc domain/web + build) en cada push.
 - 🚀 **Migración a Cloudflare Workers + Neon completa en código y CI** (2026-08-25): cliente Prisma dual (Node/Workers), wrangler.jsonc + open-next.config.ts, CI arma el bundle de Workers en Linux (verde). Faltan solo los pasos interactivos de cuenta (Neon, secrets del repo, secret `DATABASE_URL` del Worker, dominio) — ver sección Deploy.
 

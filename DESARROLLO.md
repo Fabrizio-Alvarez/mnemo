@@ -182,7 +182,9 @@ Regla general que deja: **una sesión interactiva es un snapshot; el server no d
 
 ### El modo quiz — extensibilidad hecha carne
 
-`armarQuiz` (`domain/src/quiz.ts`) convierte el mazo en opción múltiple: por cada tarjeta, 3 distractores = respuestas de tarjetas hermanas (dedupeadas, mezcladas) + la correcta, todo pasado por `mezclar` (Fisher-Yates con **rng inyectable** → tests deterministas). La página llama con `Math.random` (cada visita, un quiz distinto); `QuizSesion` mezcla además el ORDEN de preguntas al montar.
+`armarQuiz` (`domain/src/quiz.ts`) convierte el mazo en opción múltiple: por cada tarjeta, 3 distractores = respuestas de tarjetas hermanas (dedupeadas, mezcladas) + la correcta, todo pasado por `mezclar` (Fisher-Yates con **rng inyectable** → tests deterministas). Cada opción lleva su **origen** — la pregunta de la tarjeta hermana de donde salió — y la tarjeta su **explicación** opcional (`### porque` en el `.md`, campo `explanation` en la BD). La página llama con `Math.random` (cada visita, un quiz distinto); `QuizSesion` mezcla además el ORDEN de preguntas al montar.
+
+Capa didáctica (2026-08-28): al errar, la opción elegida muestra **"responde a otra tarjeta: «pregunta»"** — el quiz enseña el mapeo pregunta↔respuesta, no solo correcto/incorrecto. Tras responder, si la tarjeta tiene explicación aparece la caja **`💡 Por qué`** con el razonamiento conceptual autoral. Memoria Y entendimiento, mismo `.md`.
 
 Decisión clave: el quiz es **modo práctica** — no llama server actions, no escribe nada. Un quiz auto-calificado no es una autoevaluación honesta (adivinás) y contaminaría el scheduling SM-2. Así el `.md` alimenta DOS modos con la misma fuente y cero duplicación: la promesa de extensibilidad del diseño, cumplida.
 
