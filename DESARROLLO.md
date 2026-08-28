@@ -149,7 +149,7 @@ Todas `force-dynamic`: los datos cambian con cada repaso, nada de caché de pág
 
 - **Re-encolado** (estilo Anki): calificar "Otra vez" re-encola la tarjeta al final de la cola (máx. 1 reencolado por tarjeta, flag `reencolada`). El total visible crece ("Tarjeta 2 de 11 (+1 re-encolada)") — correcto: aún te queda trabajo.
 - **Resumen final** = la ÚLTIMA calificación por tarjeta original (`Map cardId→grade` sobre el historial de la sesión). Una tarjeta fallada y después aprobada cuenta como aprobada.
-- **Deshacer** (`Z` o botón): solo la última acción. La action `deshacerUltima` restaura el estado previo desde `review_logs` y borra la fila, en una transacción. Si lo deshecho fue un "Otra vez", la copia re-encolada sale de la cola.
+- **Deshacer** (`Z` o botón): solo la última acción. La action `deshacerUltima` restaura el estado previo desde `review_logs` y borra la fila. Si lo deshecho fue un "Otra vez", la copia re-encolada sale de la cola.
 
 ### El flujo completo de un clic en "Bien"
 
@@ -160,14 +160,14 @@ flowchart LR
     C -->|props| D[SesionEstudio\ncliente: flip + 4 botones]
     D -->|calificar cardId, slug, grade| E[Server Action]
     E -->|schedule: SM-2 puro| F[nuevo estado + dueAt]
-    E -->|transacción| B
+    E -->|log + update| B
     B -->|ReviewLog append-only| B
     D -->|índice++| D
 ```
 
 1. El Server Component consulta las vencidas y se las pasa a `SesionEstudio`.
 2. Vos revelás la respuesta (**espacio**) y calificás (**1–4** en el teclado o clic).
-3. La server action `calificar` (`src/app/actions.ts`): carga el card → `schedule()` del dominio → **transacción**: `UPDATE card` (estado nuevo) + `INSERT review_log` → devuelve el intervalo.
+3. La server action `calificar` (`src/app/actions.ts`): carga el card → `schedule()` del dominio → `INSERT review_log` (con estado previo) + `UPDATE card` (estado nuevo) — sin `$transaction` (NeonHTTP no las soporta; el orden log→card se auto-repara en fallo parcial) → devuelve el intervalo.
 4. El cliente muestra "Vuelve mañana / en N días" y avanza.
 
 ### La lección del bug (por qué no hay `revalidatePath`)
