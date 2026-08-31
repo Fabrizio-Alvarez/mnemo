@@ -121,3 +121,70 @@ describe("explicación didáctica (### porque)", () => {
     expect(deck.cards[0]?.explanation).toBe("línea 1\nlínea 2\n\n- item");
   });
 });
+
+describe("distractores autorales (### distractores)", () => {
+  it("la lista bajo ### distractores parsea a string[] y no contamina respuesta ni porque", () => {
+    const deck = parseDeck(
+      "## ¿P?\nRespuesta.\n\n### porque\nConcepto.\n\n### distractores\n- Casi correcto A.\n- Casi correcto B.\n- Casi correcto C.",
+    );
+    expect(deck.cards[0]?.distractores).toEqual(["Casi correcto A.", "Casi correcto B.", "Casi correcto C."]);
+    expect(deck.cards[0]?.answer).toBe("Respuesta.");
+    expect(deck.cards[0]?.explanation).toBe("Concepto.");
+  });
+
+  it("sin ### distractores el campo está ausente", () => {
+    const deck = parseDeck("## ¿P?\nR");
+    expect(deck.cards[0]?.distractores).toBeUndefined();
+  });
+
+  it("renglones sin viñeta dentro de la sección se ignoran (solo `- item`)", () => {
+    const deck = parseDeck("## ¿P?\nR\n\n### distractores\n- Válido.\nprosa sin viñeta");
+    expect(deck.cards[0]?.distractores).toEqual(["Válido."]);
+  });
+
+  it("armarQuiz prioriza los autorales y completa con hermanas hasta 3", () => {
+    const mazo = [
+      { question: "¿A?", answer: "Correcta A", distractores: ["Plausible A1", "Plausible A2"] },
+      { question: "¿B?", answer: "Correcta B" },
+      { question: "¿C?", answer: "Correcta C" },
+      { question: "¿D?", answer: "Correcta D" },
+      { question: "¿E?", answer: "Correcta E" },
+    ];
+    const quiz = armarQuiz(mazo, () => 0.9999);
+    const item = quiz[0]!;
+    const textos = item.opciones.map((o) => o.texto);
+    expect(textos).toContain("Plausible A1");
+    expect(textos).toContain("Plausible A2");
+    // el tercer distractor es una respuesta hermana (completa hasta 3)
+    const hermanas = new Set(["Correcta B", "Correcta C", "Correcta D", "Correcta E"]);
+    const tercer = textos.find((t) => t !== "Correcta A" && t !== "Plausible A1" && t !== "Plausible A2");
+    expect(hermanas.has(tercer!)).toBe(true);
+    // los autorales NO llevan origen (no responden a otra pregunta)
+    for (const o of item.opciones) {
+      if (o.texto.startsWith("Plausible")) expect(o.origen).toBeUndefined();
+    }
+    // los hermanos SÍ lo llevan
+    const opHermana = item.opciones.find((o) => hermanas.has(o.texto));
+    expect(opHermana?.origen).toBeDefined();
+  });
+
+  it("3 autorales completos: no entra ninguna hermana", () => {
+    const mazo = [
+      { question: "¿A?", answer: "Correcta A", distractores: ["D1", "D2", "D3"] },
+      { question: "¿B?", answer: "Correcta B" },
+    ];
+    const quiz = armarQuiz(mazo, () => 0.9999);
+    const textos = quiz[0]!.opciones.map((o) => o.texto);
+    expect(textos.sort()).toEqual(["Correcta A", "D1", "D2", "D3"]);
+  });
+
+  it("distractor autoral igual a la respuesta se descarta (seguridad anti-autor-errado)", () => {
+    const mazo = [
+      { question: "¿A?", answer: "Correcta", distractores: ["Correcta", "Válido", "Otro", "Y un tercero"] },
+      { question: "¿B?", answer: "Hermana B" },
+    ];
+    const quiz = armarQuiz(mazo, () => 0.9999);
+    const textos = quiz[0]!.opciones.map((o) => o.texto);
+    expect(textos.filter((t) => t === "Correcta")).toHaveLength(1); // solo la correcta
+  });
+});

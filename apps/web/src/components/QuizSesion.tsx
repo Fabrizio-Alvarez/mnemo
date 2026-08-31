@@ -111,9 +111,9 @@ export default function QuizSesion({
             >
               {opcion.texto}
               {revelada && esCorrecta && <span className="ml-2 text-xs font-semibold">✓ correcta</span>}
-              {revelada && esElegida && !esCorrecta && (
+              {revelada && esElegida && !esCorrecta && opcion.origen && (
                 <span className="mt-1 block text-xs opacity-80">
-                  ✗ responde a otra tarjeta: «{opcion.origen ?? "?"}»
+                  ✗ responde a otra tarjeta: «{opcion.origen}»
                 </span>
               )}
             </button>

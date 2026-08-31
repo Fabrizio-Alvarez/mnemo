@@ -26,6 +26,13 @@ export interface CardSource {
    * el "por qué" conceptual, no solo la respuesta correcta.
    */
   explanation?: string;
+  /**
+   * Distractores autorales opcionales (`### distractores`, lista `- item`):
+   * respuestas plausibles pero INCORRECTAS del mismo tema que la pregunta.
+   * El quiz las prioriza — las respuestas de tarjetas hermanas suelen ser
+   * de otro tema y se eliminan por descarte (adivinar es fácil).
+   */
+  distractores?: string[];
 }
 
 /** Un mazo parseado desde Markdown. */

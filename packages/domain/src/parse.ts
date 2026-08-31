@@ -71,33 +71,57 @@ function fallbackTitle(body: string): string {
 }
 
 function extractCards(body: string): CardSource[] {
-  const sections: { question: string; answerLines: string[]; explanationLines: string[]; enExplicacion: boolean }[] = [];
+  const sections: {
+    question: string;
+    answerLines: string[];
+    explanationLines: string[];
+    distractorLines: string[];
+    modo: "respuesta" | "porque" | "distractores";
+  }[] = [];
 
   for (const line of body.split("\n")) {
     const match = /^##\s+(.+)$/.exec(line);
     if (match) {
-      sections.push({ question: match[1]!.trim(), answerLines: [], explanationLines: [], enExplicacion: false });
+      sections.push({ question: match[1]!.trim(), answerLines: [], explanationLines: [], distractorLines: [], modo: "respuesta" });
       continue;
     }
     const section = sections[sections.length - 1];
     if (section === undefined) continue; // prosa antes de la primera tarjeta
 
-    // `### porque` (también "por qué" / "¿por qué?") abre la explicación:
-    // lo que sigue deja de ser respuesta y pasa a ser el por qué conceptual.
+    // Sub-encabezados de sección dentro de la tarjeta:
+    //   `### porque` → explicación conceptual | `### distractores` → opciones erróneas plausibles.
+    // Lo que sigue al marcador deja de ser respuesta.
     const sub = /^###\s+(.+)$/.exec(line);
-    if (sub !== null && esEncabezadoPorque(sub[1]!)) {
-      section.enExplicacion = true;
-      continue;
+    if (sub !== null) {
+      const titulo = sub[1]!;
+      if (esEncabezadoPorque(titulo)) {
+        section.modo = "porque";
+        continue;
+      }
+      if (esEncabezadoDistractores(titulo)) {
+        section.modo = "distractores";
+        continue;
+      }
     }
-    (section.enExplicacion ? section.explanationLines : section.answerLines).push(line);
+
+    if (section.modo === "porque") {
+      section.explanationLines.push(line);
+    } else if (section.modo === "distractores") {
+      // Lista `- item`: cada renglón con viñeta es un distractor.
+      if (/^\s*-\s+/.test(line)) section.distractorLines.push(line.replace(/^\s*-\s+/, "").trim());
+    } else {
+      section.answerLines.push(line);
+    }
   }
 
-  return sections.map(({ question, answerLines, explanationLines }) => {
+  return sections.map(({ question, answerLines, explanationLines, distractorLines }) => {
     const explanation = explanationLines.join("\n").trim();
+    const distractores = distractorLines.filter((d) => d !== "");
     return {
       question,
       answer: answerLines.join("\n").trim(),
       ...(explanation !== "" ? { explanation } : {}),
+      ...(distractores.length > 0 ? { distractores } : {}),
     };
   });
 }
@@ -105,4 +129,10 @@ function extractCards(body: string): CardSource[] {
 /** `porque` / `por qué` / `¿por qué?` — mismo marcador, tolerante a tildes y signos. */
 function esEncabezadoPorque(titulo: string): boolean {
   return titulo.normalize("NFD").replace(/[\u0300-\u036f¿?.,:;!¡\s-]/g, "").toLowerCase() === "porque";
+}
+
+/** `distractores` / `distractor` — singular o plural. */
+function esEncabezadoDistractores(titulo: string): boolean {
+  const n = titulo.normalize("NFD").replace(/[\u0300-\u036f¿?.,:;!¡\s-]/g, "").toLowerCase();
+  return n === "distractores" || n === "distractor";
 }

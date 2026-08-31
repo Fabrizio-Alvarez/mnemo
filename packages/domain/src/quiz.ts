@@ -26,20 +26,29 @@ export interface ItemQuiz<T> {
   correcta: number;
 }
 
-export function armarQuiz<T extends { question: string; answer: string }>(
+export function armarQuiz<T extends { question: string; answer: string; distractores?: string[] }>(
   cards: T[],
   rng: () => number = Math.random,
 ): ItemQuiz<T>[] {
   return cards.map((card) => {
-    const distractores = mezclar(
+    // Distractores autorales (`### distractores` en el .md): plausibles pero
+    // incorrectos, del MISMO tema que la pregunta — no se eliminan por descarte.
+    const autorales = (card.distractores ?? [])
+      .map((texto) => texto.trim())
+      .filter((texto) => texto !== "" && texto !== card.answer)
+      .map((texto) => ({ texto }));
+
+    // Hermanas: completan hasta 3 si faltan autorales (fallback histórico).
+    const hermanas = mezclar(
       deduplicarPorTexto(
         cards
           .filter((otra) => otra.question !== card.question)
           .map((otra) => ({ texto: otra.answer, origen: otra.question })),
-      ).filter((opcion) => opcion.texto !== card.answer),
+      ).filter((opcion) => opcion.texto !== card.answer && !autorales.some((a) => a.texto === opcion.texto)),
       rng,
-    ).slice(0, 3);
+    );
 
+    const distractores = [...autorales, ...hermanas].slice(0, 3);
     const opciones = mezclar([{ texto: card.answer }, ...distractores], rng);
     return { tarjeta: card, opciones, correcta: opciones.findIndex((o) => o.texto === card.answer) };
   });
