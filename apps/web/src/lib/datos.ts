@@ -36,8 +36,26 @@ export async function mazosConEstado(): Promise<MazoResumen[]> {
 }
 
 export interface DetalleMazo extends MazoResumen {
-  vencidasAhora: { id: string; question: string; answer: string }[];
+  vencidasAhora: TarjetaEstudio[];
   repasadas: number;
+}
+
+/** Tarjeta con su kata opcional (derivada de kataFirma + kataTests de la BD). */
+export interface TarjetaEstudio {
+  id: string;
+  question: string;
+  answer: string;
+  kata: { firma: string; nombre: string; tests: { args: unknown[]; espera: unknown }[] } | null;
+}
+
+function mapearKata(
+  kataFirma: string | null,
+  kataTests: unknown,
+): TarjetaEstudio["kata"] {
+  if (kataFirma === null || !Array.isArray(kataTests)) return null;
+  const nombre = /^([A-Za-z_$][\w$]*)\s*\(/.exec(kataFirma)?.[1];
+  if (nombre === undefined) return null;
+  return { firma: kataFirma, nombre, tests: kataTests as { args: unknown[]; espera: unknown }[] };
 }
 
 export async function mazoPorSlug(slug: string): Promise<DetalleMazo | null> {
@@ -53,8 +71,10 @@ export async function mazoPorSlug(slug: string): Promise<DetalleMazo | null> {
     prisma.card.findMany({
       where: { deckSlug: slug, dueAt: { lte: now } },
       orderBy: { dueAt: "asc" },
-      select: { id: true, question: true, answer: true },
-    }),
+      select: { id: true, question: true, answer: true, kataFirma: true, kataTests: true },
+    }).then((rows) =>
+      rows.map((r) => ({ id: r.id, question: r.question, answer: r.answer, kata: mapearKata(r.kataFirma, r.kataTests) })),
+    ),
   ]);
 
   return {
@@ -70,18 +90,19 @@ export async function mazoPorSlug(slug: string): Promise<DetalleMazo | null> {
 }
 
 /** Todas las tarjetas del mazo (para "repasar igual" y modo quiz). */
-export async function tarjetasDeMazo(
-  slug: string,
-): Promise<{ id: string; question: string; answer: string; explanation: string | null; distractores: string[] }[]> {
+export async function tarjetasDeMazo(slug: string): Promise<(TarjetaEstudio & { explanation: string | null; distractores: string[] })[]> {
   const prisma = await getPrisma();
   const rows = await prisma.card.findMany({
     where: { deckSlug: slug },
     orderBy: { dueAt: "asc" },
-    select: { id: true, question: true, answer: true, explanation: true, distractors: true },
+    select: { id: true, question: true, answer: true, explanation: true, distractors: true, kataFirma: true, kataTests: true },
   });
-  return rows.map(({ distractors, ...rest }) => ({ ...rest, distractores: distractors }));
+  return rows.map(({ distractors, kataFirma, kataTests, ...rest }) => ({
+    ...rest,
+    distractores: distractors,
+    kata: mapearKata(kataFirma, kataTests),
+  }));
 }
-
 export interface StatsGenerales {
   racha: number;
   mejor: number;

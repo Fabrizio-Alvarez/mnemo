@@ -1,4 +1,4 @@
-import { CardSource, DeckMeta, DeckParseError, DeckSource } from "./deck.ts";
+import { CardSource, DeckMeta, DeckParseError, DeckSource, Kata, KataTest } from "./deck.ts";
 import { parseFrontmatter } from "./frontmatter.ts";
 
 /**
@@ -76,21 +76,31 @@ function extractCards(body: string): CardSource[] {
     answerLines: string[];
     explanationLines: string[];
     distractorLines: string[];
-    modo: "respuesta" | "porque" | "distractores";
+    firma: string | null;
+    kataTestLines: string[];
+    modo: "respuesta" | "porque" | "distractores" | "kata";
   }[] = [];
 
   for (const line of body.split("\n")) {
     const match = /^##\s+(.+)$/.exec(line);
     if (match) {
-      sections.push({ question: match[1]!.trim(), answerLines: [], explanationLines: [], distractorLines: [], modo: "respuesta" });
+      sections.push({
+        question: match[1]!.trim(),
+        answerLines: [],
+        explanationLines: [],
+        distractorLines: [],
+        firma: null,
+        kataTestLines: [],
+        modo: "respuesta",
+      });
       continue;
     }
     const section = sections[sections.length - 1];
     if (section === undefined) continue; // prosa antes de la primera tarjeta
 
     // Sub-encabezados de sección dentro de la tarjeta:
-    //   `### porque` → explicación conceptual | `### distractores` → opciones erróneas plausibles.
-    // Lo que sigue al marcador deja de ser respuesta.
+    //   `### porque` → explicación | `### distractores` → opciones erróneas
+    //   `### kata` → ejercicio de código (firma + tests)
     const sub = /^###\s+(.+)$/.exec(line);
     if (sub !== null) {
       const titulo = sub[1]!;
@@ -102,6 +112,10 @@ function extractCards(body: string): CardSource[] {
         section.modo = "distractores";
         continue;
       }
+      if (titulo.trim().toLowerCase() === "kata") {
+        section.modo = "kata";
+        continue;
+      }
     }
 
     if (section.modo === "porque") {
@@ -109,21 +123,56 @@ function extractCards(body: string): CardSource[] {
     } else if (section.modo === "distractores") {
       // Lista `- item`: cada renglón con viñeta es un distractor.
       if (/^\s*-\s+/.test(line)) section.distractorLines.push(line.replace(/^\s*-\s+/, "").trim());
+    } else if (section.modo === "kata") {
+      const firma = /^firma:\s*(.+)$/.exec(line.trim());
+      if (firma !== null) {
+        section.firma = firma[1]!.trim();
+      } else if (/^\s*-\s+/.test(line)) {
+        section.kataTestLines.push(line.replace(/^\s*-\s+/, "").trim());
+      }
     } else {
       section.answerLines.push(line);
     }
   }
 
-  return sections.map(({ question, answerLines, explanationLines, distractorLines }) => {
+  return sections.map(({ question, answerLines, explanationLines, distractorLines, firma, kataTestLines }) => {
     const explanation = explanationLines.join("\n").trim();
     const distractores = distractorLines.filter((d) => d !== "");
+    const kata = parsearKata(firma, kataTestLines);
     return {
       question,
       answer: answerLines.join("\n").trim(),
       ...(explanation !== "" ? { explanation } : {}),
       ...(distractores.length > 0 ? { distractores } : {}),
+      ...(kata !== null ? { kata } : {}),
     };
   });
+}
+
+/**
+ * `### kata` del .md → Kata. Formato de la sección:
+ *   firma: buscar(arr, target)
+ *   - [ [1,3,5,7,9], 7 ] => 3
+ * Cada test: array JSON de argumentos, `=>`, valor esperado JSON.
+ * Sin firma o sin tests válidos, la sección se ignora (tarjeta normal).
+ */
+function parsearKata(firma: string | null, testLines: string[]): Kata | null {
+  if (firma === null) return null;
+  const nombre = /^([A-Za-z_$][\w$]*)\s*\(/.exec(firma)?.[1];
+  if (nombre === undefined) return null;
+
+  const tests: KataTest[] = [];
+  for (const linea of testLines) {
+    const sep = linea.indexOf("=>");
+    if (sep === -1) continue;
+    try {
+      tests.push({ args: JSON.parse(linea.slice(0, sep).trim()), espera: JSON.parse(linea.slice(sep + 2).trim()) });
+    } catch {
+      // test malformado (JSON inválido) — se ignora silenciosamente
+    }
+  }
+  if (tests.length === 0) return null;
+  return { firma, nombre, tests };
 }
 
 /** `porque` / `por qué` / `¿por qué?` — mismo marcador, tolerante a tildes y signos. */

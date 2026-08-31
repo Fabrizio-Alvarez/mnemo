@@ -14,11 +14,13 @@ export default async function PaginaQuiz({ params }: { params: Promise<{ slug: s
     prisma.deck.findUnique({ where: { slug }, select: { title: true } }),
     tarjetasDeMazo(slug),
   ]);
-  if (deck === null || cards.length === 0) notFound();
+  // Las tarjetas kata (ejercicios de código) no son opción múltiple: se excluyen.
+  const conceptuales = cards.filter((c) => c.kata === null);
+  if (deck === null || conceptuales.length === 0) notFound();
 
   // Opción múltiple derivada del mismo contenido: distractores = respuestas
   // hermanas. Math.random (default) → cada visita arma un quiz distinto.
-  const items = armarQuiz(cards);
+  const items = armarQuiz(conceptuales);
 
   return (
     <div className="space-y-6">

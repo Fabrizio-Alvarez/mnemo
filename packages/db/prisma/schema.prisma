@@ -34,6 +34,8 @@ model Card {
   answer       String
   explanation  String?
   distractors  String[]    @default([])
+  kataFirma    String?
+  kataTests    Json?
   ease         Float     @default(2.5)
   intervalDays Int       @default(0)
   dueAt        DateTime  @default(now())

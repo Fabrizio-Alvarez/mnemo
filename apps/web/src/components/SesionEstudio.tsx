@@ -9,6 +9,7 @@ interface Tarjeta {
   id: string;
   question: string;
   answer: string;
+  kata: { firma: string; nombre: string; tests: { args: unknown[]; espera: unknown }[] } | null;
 }
 
 /** Ítem de la cola de estudio; una tarjeta re-encolada vuelve al final (máx 1 vez). */
@@ -195,7 +196,9 @@ export default function SesionEstudio({
 
       <article className="flex min-h-64 flex-1 flex-col rounded-2xl border border-foreground/10 bg-card p-6 sm:p-8">
         <h2 className="text-xl font-medium leading-relaxed">{card.question}</h2>
-        {revelada ? (
+        {card.kata !== null ? (
+          <KataEjercicio key={card.id} kata={card.kata} solucion={card.answer} revelada={revelada} onVerSolucion={() => setRevelada(true)} />
+        ) : revelada ? (
           <p className="mt-6 whitespace-pre-line border-t border-foreground/10 pt-6 leading-relaxed text-muted">
             {card.answer}
             {card.reencolada && <span className="mt-3 block text-xs text-foreground/50">↩ re-encolada — segunda pasada</span>}
@@ -212,7 +215,7 @@ export default function SesionEstudio({
         )}
       </article>
 
-      {revelada && (
+      {(card.kata !== null || revelada) && (
         <div className="grid shrink-0 grid-cols-2 gap-2 pb-[env(safe-area-inset-bottom)] sm:grid-cols-4">
           {([0, 1, 2, 3] as Grade[]).map((grade) => (
             <button
@@ -226,6 +229,129 @@ export default function SesionEstudio({
             </button>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+interface KataData {
+  firma: string;
+  nombre: string;
+  tests: { args: unknown[]; espera: unknown }[];
+}
+
+interface ResultadoTest {
+  args: unknown[];
+  espera: unknown;
+  obtuvo: unknown;
+  error: string | null;
+  ok: boolean;
+}
+
+/**
+ * Ejercicio de código: editor + tests que corren en el navegador contra el
+ * código del usuario (eval client-side, sin servidor). La calificación sigue
+ * siendo autoevaluación honesta: los 4 botones de SM-2 están debajo —
+ * "lo resolví sin ayuda" = Fácil/Bien, "con pista" = Difícil, "no pude" = Otra vez.
+ */
+function KataEjercicio({
+  kata,
+  solucion,
+  revelada,
+  onVerSolucion,
+}: {
+  kata: KataData;
+  solucion: string;
+  revelada: boolean;
+  onVerSolucion: () => void;
+}) {
+  const params = /\((.*)\)/.exec(kata.firma)?.[1] ?? "";
+  const [codigo, setCodigo] = useState(`function ${kata.nombre}(${params}) {\n  // tu solución\n}`);
+  const [resultados, setResultados] = useState<ResultadoTest[] | null>(null);
+  const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
+
+  const correr = () => {
+    setErrorGlobal(null);
+    try {
+      const fn = new Function(
+        `"use strict";\n${codigo}\nreturn typeof ${kata.nombre} !== "undefined" ? ${kata.nombre} : undefined;`,
+      )();
+      if (typeof fn !== "function") {
+        setErrorGlobal(`No encontré la función ${kata.nombre}(...). Definila con function ${kata.nombre}(${params}) { ... }`);
+        setResultados(null);
+        return;
+      }
+      setResultados(
+        kata.tests.map((t) => {
+          let obtuvo: unknown;
+          let error: string | null = null;
+          try {
+            obtuvo = fn(...t.args);
+          } catch (e) {
+            error = e instanceof Error ? e.message : String(e);
+          }
+          return { args: t.args, espera: t.espera, obtuvo, error, ok: error === null && JSON.stringify(obtuvo) === JSON.stringify(t.espera) };
+        }),
+      );
+    } catch (e) {
+      setErrorGlobal(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+      setResultados(null);
+    }
+  };
+
+  const pasaron = resultados?.filter((r) => r.ok).length ?? 0;
+
+  return (
+    <div className="mt-4 flex flex-1 flex-col gap-3">
+      <p className="text-xs text-muted">
+        Función esperada: <code className="rounded bg-foreground/5 px-1.5 py-0.5">{kata.firma}</code> — escribila y corre los tests en tu navegador.
+      </p>
+      <textarea
+        value={codigo}
+        onChange={(e) => setCodigo(e.target.value)}
+        spellCheck={false}
+        rows={8}
+        className="w-full flex-1 resize-y rounded-lg border border-foreground/15 bg-background px-4 py-3 font-mono text-sm leading-relaxed focus:border-accent focus:outline-none"
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={correr}
+          className="rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
+        >
+          ▶ Correr {kata.tests.length} tests
+        </button>
+        {resultados !== null && (
+          <span className={pasaron === resultados.length ? "text-sm font-medium text-emerald-600 dark:text-emerald-400" : "text-sm font-medium text-red-600 dark:text-red-400"}>
+            {pasaron}/{resultados.length} pasan
+          </span>
+        )}
+        {!revelada && (
+          <button type="button" onClick={onVerSolucion} className="py-2 text-xs text-muted underline hover:text-foreground">
+            Ver solución de referencia
+          </button>
+        )}
+      </div>
+
+      {errorGlobal !== null && (
+        <pre className="whitespace-pre-wrap rounded-lg border border-red-500/40 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-400">{errorGlobal}</pre>
+      )}
+      {resultados !== null && (
+        <ul className="space-y-1.5 text-xs">
+          {resultados.map((r, i) => (
+            <li key={i} className={r.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}>
+              {r.ok ? "✓" : "✗"} {kata.nombre}({r.args.map((a) => JSON.stringify(a)).join(", ")}) →{" "}
+              {r.error !== null ? <span>explotó: {r.error}</span> : <span className="font-mono">{JSON.stringify(r.obtuvo)}</span>}
+              {!r.ok && <> (esperaba <span className="font-mono">{JSON.stringify(r.espera)}</span>)</>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {revelada && (
+        <details className="rounded-lg border border-foreground/10">
+          <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium">Solución de referencia</summary>
+          <pre className="whitespace-pre-wrap border-t border-foreground/10 px-4 py-3 text-xs leading-relaxed text-muted">{solucion}</pre>
+        </details>
       )}
     </div>
   );

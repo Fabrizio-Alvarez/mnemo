@@ -33,6 +33,27 @@ export interface CardSource {
    * de otro tema y se eliminan por descarte (adivinar es fácil).
    */
   distractores?: string[];
+  /**
+   * Ejercicio de código opcional (`### kata` en el .md): la pregunta es el
+   * enunciado, el cuerpo la solución de referencia, y acá viven la firma
+   * y los tests que el navegador ejecuta contra el código del usuario.
+   */
+  kata?: Kata;
+}
+
+/** Un caso de prueba de kata: argumentos JSON → valor esperado JSON. */
+export interface KataTest {
+  args: unknown[];
+  espera: unknown;
+}
+
+/** Ejercicio de código derivado del `### kata` de la tarjeta. */
+export interface Kata {
+  /** Firma legible, ej: "buscar(arr, target)". */
+  firma: string;
+  /** Nombre de la función que el usuario debe definir, ej: "buscar". */
+  nombre: string;
+  tests: KataTest[];
 }
 
 /** Un mazo parseado desde Markdown. */

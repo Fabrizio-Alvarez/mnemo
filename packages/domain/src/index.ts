@@ -12,7 +12,7 @@ export {
   schedule,
 } from "./sm2.ts";
 export type { Grade, ScheduledCard, SrsState } from "./sm2.ts";
-export type { CardSource, DeckMeta, DeckSource } from "./deck.ts";
+export type { CardSource, DeckMeta, DeckSource, Kata, KataTest } from "./deck.ts";
 export { DeckParseError } from "./deck.ts";
 export { armarQuiz, mezclar } from "./quiz.ts";
 export type { ItemQuiz } from "./quiz.ts";

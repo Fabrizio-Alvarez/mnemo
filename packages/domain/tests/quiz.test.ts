@@ -188,3 +188,51 @@ describe("distractores autorales (### distractores)", () => {
     expect(textos.filter((t) => t === "Correcta")).toHaveLength(1); // solo la correcta
   });
 });
+
+describe("kata (### kata)", () => {
+  it("firma + tests JSON parsean a Kata con nombre extraído de la firma", () => {
+    const deck = parseDeck(
+      [
+        "## Implementá búsqueda binaria",
+        "```ts",
+        "function buscar(arr, target) { ... }",
+        "```",
+        "",
+        "### kata",
+        "firma: buscar(arr, target)",
+        "- [ [1,3,5,7,9], 7 ] => 3",
+        "- [ [1,3,5,7,9], 4 ] => -1",
+        "- [ [], 1 ] => -1",
+      ].join("\n"),
+    );
+    const card = deck.cards[0]!;
+    expect(card.kata).toBeDefined();
+    expect(card.kata!.nombre).toBe("buscar");
+    expect(card.kata!.firma).toBe("buscar(arr, target)");
+    expect(card.kata!.tests).toHaveLength(3);
+    expect(card.kata!.tests[0]).toEqual({ args: [[1, 3, 5, 7, 9], 7], espera: 3 });
+    // el cuerpo (solución de referencia) sigue siendo la respuesta
+    expect(card.answer).toContain("function buscar");
+  });
+
+  it("test con JSON inválido se ignora; sin tests válidos no hay kata", () => {
+    const deck = parseDeck(
+      "## ¿P?\nSolución.\n\n### kata\nfirma: fn(x)\n- [ no json ] => 1\n- [1] => no-json-tampoco",
+    );
+    expect(deck.cards[0]?.kata).toBeUndefined();
+  });
+
+  it("kata sin firma se ignora (tarjeta normal)", () => {
+    const deck = parseDeck("## ¿P?\nR\n\n### kata\n- [1] => 1");
+    expect(deck.cards[0]?.kata).toBeUndefined();
+    expect(deck.cards[0]?.answer).toBe("R");
+  });
+
+  it("porque y kata conviven en la misma tarjeta", () => {
+    const deck = parseDeck(
+      "## ¿P?\nSolución.\n\n### porque\nConcepto.\n\n### kata\nfirma: fn(x)\n- [2] => 4",
+    );
+    expect(deck.cards[0]?.explanation).toBe("Concepto.");
+    expect(deck.cards[0]?.kata?.tests).toHaveLength(1);
+  });
+});
