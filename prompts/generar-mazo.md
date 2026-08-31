@@ -21,21 +21,29 @@ fuente: <de dónde salió el material>
 
 ### porque
 <Explicación conceptual: el POR QUÉ, no repetir la respuesta.>
+
+### distractores
+- <Respuesta plausible pero INCORRECTA, del mismo tema que la pregunta.>
+- <Otra confusión clásica del tema.>
+- <Un tercer error típico, también creíble.>
 ```
 
 REGLAS DE FORMATO (innegociables):
 1. Un solo bloque de texto: el .md completo, sin explicaciones alrededor.
 2. Cada tarjeta = un encabezado `##`. La pregunta en el encabezado, la respuesta en el cuerpo.
-3. `### porque` es OPCIONAL pero OBLIGATORIO en tarjetas de comparación ("X vs Y"):
-   ahí explica el criterio para decidir cuándo usar cada uno y el error clásico.
-4. Frontmatter: `deck`, `tags` (array), `fuente`.
+3. `### porque` es OBLIGATORIO: explicá el razonamiento/criterio y el error clásico, no repitas la respuesta.
+4. `### distractores` es OBLIGATORIO: exactamente 3 ítems de lista (`- item`). Cada uno es una
+   respuesta que SUENA correcta para quien no domina el tema pero es falsa — las confusiones
+   clásicas del tema (la definición de la operación vecina, el mito común, la regla al revés).
+   NUNCA obviamente absurdo, NUNCA igual a la respuesta.
+5. Frontmatter: `deck`, `tags` (array), `fuente`.
 
 REGLAS DE CALIDAD:
 1. Entre 10 y 15 tarjetas. Densidad > cantidad: cada tarjeta un solo concepto.
 2. Preguntas CONCEPTUALES, no trivia: "¿por qué...?", "¿cuándo usar X vs Y?", "¿qué pasa si...?".
    Evitá "¿cuál es la versión de...?" y preguntas de memorización pura de sintaxis.
-3. Respuestas CORTAS (1-3 líneas) y DISTINTAS entre sí: en el modo quiz, las respuestas
-   de otras tarjetas son los distractores — respuestas parecidas entre sí arruinan el quiz.
+3. Respuestas CORTAS (1-3 líneas): el quiz muestra la correcta junto a los distractores
+   autorales; si la respuesta correcta es larguísima, se delata sola.
 4. `### porque` enseña el razonamiento: criterios de decisión, trade-offs, el error típico.
    No repitas la respuesta: explicá lo que la respuesta presupone.
 5. Ordená de lo fundamental a lo avanzado.
@@ -62,6 +70,6 @@ El slug sale del nombre de archivo: `laravel-entrevista.md` → `laravel-entrevi
 
 - [ ] Frontmatter con `deck`, `tags`, `fuente`
 - [ ] Todas las preguntas empiezan con `## `
-- [ ] Comparaciones "X vs Y" tienen `### porque`
-- [ ] No hay dos respuestas casi idénticas (mataría los distractores del quiz)
-- [ ] 10-15 tarjetas
+- [ ] TODAS las tarjetas tienen `### porque` y `### distractores` con exactamente 3 ítems
+- [ ] Los distractores son creíbles pero falsos (no absurdos, no iguales a la respuesta)
+- [ ] 10-20 tarjetas
