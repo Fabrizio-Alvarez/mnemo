@@ -120,6 +120,12 @@ export default function SesionEstudio({
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (terminada) return;
+      // Mientras se escribe (editor kata, inputs) el teclado es del usuario:
+      // los atajos solo aplican fuera de elementos editables.
+      const t = event.target as HTMLElement | null;
+      if (t !== null && (t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.tagName === "SELECT" || t.isContentEditable)) {
+        return;
+      }
       if (event.code === "Space" || event.code === "Enter") {
         event.preventDefault();
         if (!revelada) setRevelada(true);
