@@ -348,6 +348,17 @@ function KataEjercicio({
       <textarea
         value={codigo}
         onChange={(e) => setCodigo(e.target.value)}
+        onKeyDown={(e) => {
+          // Tab en un textarea mueve el foco (nativo) — un editor de código
+          // espera indentación. Inserta 2 espacios en el cursor; Shift+Tab
+          // queda nativo como escape de accesibilidad.
+          if (e.key === "Tab" && !e.shiftKey) {
+            e.preventDefault();
+            const { selectionStart: inicio, selectionEnd: fin, value: valor } = e.currentTarget;
+            setCodigo(valor.slice(0, inicio) + "  " + valor.slice(fin));
+            requestAnimationFrame(() => e.currentTarget.setSelectionRange(inicio + 2, inicio + 2));
+          }
+        }}
         spellCheck={false}
         rows={8}
         className="w-full flex-1 resize-y rounded-lg border border-foreground/15 bg-background px-4 py-3 font-mono text-sm leading-relaxed focus:border-accent focus:outline-none"
