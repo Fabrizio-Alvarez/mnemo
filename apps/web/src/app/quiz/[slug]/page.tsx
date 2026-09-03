@@ -33,7 +33,7 @@ export default async function PaginaQuiz({ params }: { params: Promise<{ slug: s
         Modo práctica — no afecta tu plan de repaso (SM-2 queda intacto).
       </p>
       <QuizSesion deckSlug={slug} deckTitle={deck?.title ?? slug} preguntas={items.map((item) => ({
-        question: item.tarjeta.question,
+        question: item.pregunta,
         opciones: item.opciones,
         correcta: item.correcta,
         explicacion: item.tarjeta.explanation ?? null,

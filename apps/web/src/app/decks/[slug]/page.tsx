@@ -74,7 +74,7 @@ export default async function PaginaMazo({ params }: { params: Promise<{ slug: s
               <summary className="-my-2 cursor-pointer list-none py-2 font-medium marker:hidden group-open:text-accent">
                 {card.question}
               </summary>
-              <p className="mt-2 whitespace-pre-line pb-1 text-sm text-muted">{card.answer}</p>
+              <p className="mt-2 whitespace-pre-line pb-1 text-sm text-muted">{card.answer.replace(/==([^=\n]+)==/g, "$1")}</p>
             </details>
           ))}
           {mazo.total - mazo.vencidasAhora.length > 0 && (

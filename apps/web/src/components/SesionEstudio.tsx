@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { calificar, deshacerUltima } from "@/app/actions";
-import { GRADE_LABELS, type Grade } from "@mnemo/domain";
+import { GRADE_LABELS, segmentarCloze, tieneCloze, type Grade } from "@mnemo/domain";
 
 interface Tarjeta {
   id: string;
@@ -204,6 +204,39 @@ export default function SesionEstudio({
         <h2 className="text-xl font-medium leading-relaxed">{card.question}</h2>
         {card.kata !== null ? (
           <KataEjercicio key={card.id} kata={card.kata} solucion={card.answer} revelada={revelada} onVerSolucion={() => setRevelada(true)} />
+        ) : tieneCloze(card.answer) ? (
+          // Cloze: la respuesta con huecos ES la pregunta. Oculto → blanks;
+          // revelado → el texto recordado queda resaltado (y llega la grilla SM-2).
+          <div className="flex flex-1 flex-col">
+            <p className="mt-6 whitespace-pre-line border-t border-foreground/10 pt-6 leading-relaxed">
+              {segmentarCloze(card.answer).map((s, i) =>
+                "hueco" in s ? (
+                  revelada ? (
+                    <mark key={i} className="rounded bg-accent/15 px-1 font-medium text-accent">
+                      {s.hueco}
+                    </mark>
+                  ) : (
+                    <span key={i} className="mx-0.5 inline-block min-w-16 rounded bg-foreground/10 px-2 py-0.5 text-center font-mono text-sm text-muted">
+                      ?
+                    </span>
+                  )
+                ) : (
+                  <span key={i} className="text-muted">{s.texto}</span>
+                ),
+              )}
+              {card.reencolada && revelada && <span className="mt-3 block text-xs text-foreground/50">↩ re-encolada — segunda pasada</span>}
+            </p>
+            {!revelada && (
+              <div className="flex flex-1 items-end">
+                <button
+                  onClick={() => setRevelada(true)}
+                  className="w-full rounded-lg border border-foreground/15 py-4 text-sm font-medium hover:border-accent/60 hover:text-accent"
+                >
+                  Completar huecos <kbd className="hidden text-xs text-muted [@media(hover:hover)]:inline">espacio</kbd>
+                </button>
+              </div>
+            )}
+          </div>
         ) : revelada ? (
           <p className="mt-6 whitespace-pre-line border-t border-foreground/10 pt-6 leading-relaxed text-muted">
             {card.answer}

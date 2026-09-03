@@ -10,6 +10,7 @@
  *
  * `rng` es inyectable para tests deterministas (default Math.random).
  */
+import { extraerClozes, ocultarPrimerCloze, tieneCloze } from "./cloze.ts";
 
 export interface OpcionQuiz {
   /** Texto de la opción: una respuesta del mazo. */
@@ -20,6 +21,11 @@ export interface OpcionQuiz {
 
 export interface ItemQuiz<T> {
   tarjeta: T;
+  /**
+   * Enunciado a mostrar: la pregunta (`## `), o — para tarjetas cloze —
+   * la respuesta con el primer hueco en blank (el resto visible).
+   */
+  pregunta: string;
   /** Respuestas posibles, mezcladas. */
   opciones: OpcionQuiz[];
   /** Índice de la opción correcta dentro de `opciones`. */
@@ -31,11 +37,18 @@ export function armarQuiz<T extends { question: string; answer: string; distract
   rng: () => number = Math.random,
 ): ItemQuiz<T>[] {
   return cards.map((card) => {
+    // Tarjeta cloze (==hueco== en la respuesta): el enunciado es la respuesta
+    // con el PRIMER hueco en blank y la correcta es el texto oculto —
+    // los distractores autorales son los rellenos erróneos perfectos.
+    const esCloze = tieneCloze(card.answer);
+    const correctaTexto = esCloze ? extraerClozes(card.answer)[0]! : card.answer;
+    const enunciado = esCloze ? ocultarPrimerCloze(card.answer) : card.question;
+
     // Distractores autorales (`### distractores` en el .md): plausibles pero
     // incorrectos, del MISMO tema que la pregunta — no se eliminan por descarte.
     const autorales = (card.distractores ?? [])
       .map((texto) => texto.trim())
-      .filter((texto) => texto !== "" && texto !== card.answer)
+      .filter((texto) => texto !== "" && texto !== correctaTexto)
       .map((texto) => ({ texto }));
 
     // Hermanas: completan hasta 3 si faltan autorales (fallback histórico).
@@ -44,13 +57,18 @@ export function armarQuiz<T extends { question: string; answer: string; distract
         cards
           .filter((otra) => otra.question !== card.question)
           .map((otra) => ({ texto: otra.answer, origen: otra.question })),
-      ).filter((opcion) => opcion.texto !== card.answer && !autorales.some((a) => a.texto === opcion.texto)),
+      ).filter((opcion) => opcion.texto !== correctaTexto && !autorales.some((a) => a.texto === opcion.texto)),
       rng,
     );
 
     const distractores = [...autorales, ...hermanas].slice(0, 3);
-    const opciones = mezclar([{ texto: card.answer }, ...distractores], rng);
-    return { tarjeta: card, opciones, correcta: opciones.findIndex((o) => o.texto === card.answer) };
+    const opciones = mezclar([{ texto: correctaTexto }, ...distractores], rng);
+    return {
+      tarjeta: card,
+      pregunta: enunciado,
+      opciones,
+      correcta: opciones.findIndex((o) => o.texto === correctaTexto),
+    };
   });
 }
 

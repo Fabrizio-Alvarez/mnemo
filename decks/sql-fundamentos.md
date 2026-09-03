@@ -5,7 +5,7 @@ fuente: Generado con prompts/generar-mazo.md (formato con distractores autorales
 ---
 
 ## ¿Cómo filtras filas en un SELECT?
-Con la cláusula `WHERE`: `SELECT * FROM productos WHERE precio < 100;` — el filtro corre ANTES de agrupar.
+Con la cláusula ==`WHERE`==: `SELECT * FROM productos WHERE precio < 100;` — el filtro corre ANTES de agrupar.
 
 ### porque
 WHERE decide qué filas participan del resultado. Es la primera herramienta de la que dependen todas las demás: agregaciones, orden y límite solo ven lo que pasó el filtro. Sin WHERE, la query es sobre toda la tabla.
@@ -38,7 +38,7 @@ Aplica sobre TODAS las columnas del SELECT: dos filas son duplicadas solo si coi
 - Hace que la query ignore los NULL del resultado.
 
 ## ¿Cómo tratás los NULL en los filtros?
-Con `IS NULL` / `IS NOT NULL` — nunca con `= NULL`, que no matchea nada.
+Con ==`IS NULL`== / `IS NOT NULL` — nunca con `= NULL`, que no matchea nada.
 
 ### porque
 NULL significa "desconocido", y en lógica de tres valores cualquier comparación con desconocido da desconocido → la fila queda fuera, SIEMPRE. `WHERE email = NULL` devuelve cero filas aunque haya NULLs. Trampa extra: `NOT (x = 5)` excluye los NULL (no sabés que no es 5), y `x <> 5` también los excluye.
@@ -93,7 +93,7 @@ La regla dura: toda columna del SELECT que no está en una agregación DEBE esta
 - El GROUP BY aplica después del HAVING para filtrar grupos.
 
 ## ¿WHERE vs HAVING — cuál filtra qué?
-WHERE filtra filtas ANTES de agrupar; HAVING filtra GRUPOS después del GROUP BY, y puede usar agregados.
+WHERE filtra ==filas ANTES de agrupar==; HAVING filtra ==GRUPOS después del GROUP BY==, y puede usar agregados.
 
 ### porque
 Orden de evaluación: FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY. HAVING puede decir `HAVING COUNT(*) > 5` (propiedad del grupo); WHERE no puede porque los grupos todavía no existen. Filtrar en WHERE cuando se puede es más eficiente: menos filas entran al agrupado.
@@ -126,7 +126,7 @@ EXISTS es semijoín: la BD deja de buscar apenas encuentra UNO (no colecciona to
 - Es igual a IN pero más lento porque no usa índices.
 
 ## ¿UNION o UNION ALL — cuándo cada uno?
-UNION concatena resultados y ELIMINA duplicados; UNION ALL concatena sin deduplicar (más rápido).
+UNION concatena resultados y ==ELIMINA duplicados==; UNION ALL concatena sin deduplicar (más rápido).
 
 ### porque
 El dedupe de UNION ordena o hashea el resultado completo — costo real en datasets grandes. Si sabés que no hay duplicados (o no te importan), UNION ALL. Requisito de ambos: misma CANTIDAD de columnas con tipos compatibles — los nombres de columna vienen del primer SELECT.
@@ -170,14 +170,14 @@ La diferencia clave con GROUP BY: GROUP BY colapsa N filas en una (perdés el de
 - ROW_NUMBER asigna el mismo número a las filas empatadas.
 
 ## ¿Diferencia entre DELETE y TRUNCATE?
-DELETE borra filas (con o sin WHERE) y registra cada borrado; TRUNCATE vacía la tabla entera de golpe, sin log por fila.
+DELETE borra filas (con o sin WHERE) y ==registra cada borrado==; TRUNCATE ==vacía la tabla entera de golpe==, sin log por fila.
 
 ### porque
 DELETE es quirúrgico: filtro, triggers, FKs, rollback transaccional completo. TRUNCATE es una operación de "reset": más rápido, resetea storage, pero sin WHERE y con restricciones con FKs que la referencian. La trampa de DROP: DELETE y TRUNCATE dejan la ESTRUCTURA; DROP elimina tabla y todo.
 
 ### distractores
-- TRUNCATE borra solo las filas que no cumplen la primary key.
-- DELETE borra la tabla y TRUNCATE solo su contenido invertido.
+- TRUNCATE elimina también la estructura de la tabla, no solo las filas.
+- TRUNCATE admite un WHERE para vaciar solo una parte de las filas.
 - TRUNCATE mueve las filas a una tabla de respaldo automática.
 
 ## ¿Cómo protegés una FK al borrar el padre?
